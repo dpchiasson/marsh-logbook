@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Marsh Logbook</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Spectral:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+:root{--paper:#f3ead4;--paper-2:#ece0c2;--card:#faf3e0;--ink:#20342b;--ink-soft:#54665a;--pine:#1c3a30;--teal:#2f7d7a;--teal-deep:#1f5c59;--rust:#a8432b;--brass:#b07a2e;--line:#cdbf9c;--water:#dfe7d6;--marsh:#bcc7a2}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Spectral',Georgia,serif;color:var(--ink);background:radial-gradient(circle at 20% 10%,rgba(176,122,46,.06),transparent 40%),radial-gradient(circle at 80% 90%,rgba(47,125,122,.08),transparent 45%),var(--paper);min-height:100vh;padding:0 0 40px}
+.fl-head{display:flex;align-items:center;gap:20px;padding:24px 24px 16px;max-width:1000px;margin:0 auto;border-bottom:3px double var(--line)}
+.fl-head-rose{font-size:44px;color:var(--brass);line-height:1;transform:rotate(8deg)}
+.fl-head-text{flex:1;min-width:0}
+.fl-kicker{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-deep)}
+.fl-title{font-family:'Fraunces',serif;font-weight:900;font-size:38px;line-height:.95;margin:4px 0 2px;color:var(--pine);letter-spacing:-.5px}
+.fl-sub{font-style:italic;color:var(--ink-soft);font-size:13.5px}
+.fl-head-stat{text-align:center;padding-left:16px;border-left:1px solid var(--line)}
+.fl-bignum{font-family:'Fraunces',serif;font-weight:900;font-size:36px;color:var(--rust);line-height:1}
+.fl-biglabel{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-soft)}
+.fl-tabs{display:flex;gap:4px;flex-wrap:wrap;max-width:1000px;margin:14px auto 0;padding:0 24px}
+.fl-tab{font-family:'Space Mono',monospace;font-size:12px;padding:9px 14px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer;border-bottom:none;border-radius:6px 6px 0 0;transition:all .15s}
+.fl-tab:hover{background:var(--paper-2);color:var(--ink)}
+.fl-tab.is-active{background:var(--card);color:var(--pine);font-weight:700;box-shadow:0 -2px 0 var(--rust) inset}
+.fl-main{max-width:1000px;margin:0 auto;padding:16px 24px}
+.fl-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;box-shadow:0 1px 0 #fff inset,0 6px 20px rgba(40,50,40,.06);margin-bottom:14px}
+.fl-h2{font-family:'Fraunces',serif;font-weight:600;font-size:22px;color:var(--pine);margin:0 0 14px}
+.fl-h3{font-family:'Fraunces',serif;font-weight:600;font-size:16px;color:var(--pine);margin:0 0 12px}
+.fl-subhead{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--brass);margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+.fl-subhead-note{letter-spacing:.3px;text-transform:none;color:var(--ink-soft);font-weight:400}
+.fl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.fl-field{display:flex;flex-direction:column;gap:4px}
+.fl-field-wide{grid-column:span 2}
+.fl-flabel{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-soft)}
+input,select,textarea{font-family:'Spectral',serif;font-size:14px;color:var(--ink);padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fffdf6;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 2px rgba(47,125,122,.15)}
+.fl-toggle{font-family:'Space Mono',monospace;font-size:11.5px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fffdf6;cursor:pointer;color:var(--ink);white-space:nowrap;width:100%}
+.fl-toggle.is-on{background:var(--teal);color:#fff;border-color:var(--teal-deep)}
+.fl-stop{border-left:5px solid var(--teal-deep)}
+.fl-stop-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.fl-stop-badge{font-family:'Fraunces',serif;font-weight:600;font-size:18px;color:var(--pine)}
+.fl-stop-fish{font-family:'Space Mono',monospace;font-size:11px;color:var(--rust);font-weight:700}
+.fl-pickwrap{margin:10px 0}
+.fl-leaflet{width:100%;height:340px;border-radius:8px;border:1px solid var(--line)}
+.fl-leaflet-picker{height:280px}
+.fl-catchrow{background:#fffdf6;border:1px solid var(--line);border-left:4px solid var(--teal);border-radius:8px;padding:12px;margin-bottom:10px}
+.fl-catch-top{display:flex;gap:8px;align-items:center}
+.fl-catch-sp{flex:1}
+.fl-custom{margin-top:8px}
+.fl-counts{display:flex;gap:8px;margin-top:10px}
+.fl-count{flex:1;display:flex;flex-direction:column;gap:3px}
+.fl-count-lbl{font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;color:var(--ink-soft);line-height:1.3;min-height:22px}
+.fl-count input{text-align:center;font-weight:700;font-family:'Space Mono',monospace}
+.fl-reghint{font-family:'Space Mono',monospace;font-size:10px;color:var(--brass);margin-top:8px}
+.fl-btn{font-family:'Space Mono',monospace;font-size:13px;padding:11px 20px;border:1px solid var(--line);border-radius:7px;background:var(--paper-2);color:var(--ink);cursor:pointer;transition:all .15s}
+.fl-btn:hover{background:var(--line)}
+.fl-btn-ghost{background:transparent;border-style:dashed;font-size:12px;padding:8px 14px}
+.fl-btn-add{width:100%;border-style:dashed;background:transparent;margin-bottom:14px;color:var(--teal-deep);font-weight:700}
+.fl-btn-primary{background:var(--rust);color:#fff;border-color:#8c3522;font-weight:700}
+.fl-btn-primary:hover{background:#92381f}
+.fl-actions{display:flex;gap:10px}
+.fl-controls{display:flex;gap:10px}
+.fl-search{flex:1}
+.fl-empty{text-align:center;color:var(--ink-soft);font-style:italic;padding:28px;font-size:15px}
+.fl-mono{font-family:'Space Mono',monospace;font-size:11px;color:var(--ink-soft)}
+.fl-trip-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.fl-trip-date{font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:var(--pine);margin-right:10px}
+.fl-trip-total{font-family:'Space Mono',monospace;font-size:11px;color:var(--rust);font-weight:700}
+.fl-trip-stop{border-top:1px dashed var(--line);padding:10px 0 4px;margin-top:8px}
+.fl-trip-stop-head{font-size:14px;color:var(--ink);margin-bottom:6px}
+.fl-catch-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.fl-pill{font-family:'Space Mono',monospace;font-size:11px;color:#fff;padding:3px 9px;border-radius:11px;font-weight:700}
+.fl-pill-zero{background:var(--line)!important;color:var(--ink-soft)!important;font-weight:400}
+.fl-entry-cond{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--ink-soft);line-height:1.5}
+.fl-entry-notes{font-style:italic;font-size:13.5px;margin:6px 0;color:var(--ink);padding-left:10px;border-left:2px solid var(--line)}
+.fl-entry-btns{display:flex;gap:6px}
+.fl-mini{font-family:'Space Mono',monospace;font-size:11px;padding:5px 9px;border:1px solid var(--line);border-radius:5px;background:#fffdf6;cursor:pointer;color:var(--ink-soft)}
+.fl-mini:hover{background:var(--paper-2);color:var(--ink)}
+.fl-mini-del{color:var(--rust);font-weight:700}
+.fl-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.fl-calhead{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:16px}
+.fl-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.fl-cal-dow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding-bottom:4px}
+.fl-cal-cell{aspect-ratio:1;border:1px solid var(--line);border-radius:7px;background:#fffdf6;padding:4px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;transition:all .12s}
+.fl-cal-cell:hover{background:var(--paper-2)}
+.fl-cal-empty{border:none;background:transparent;cursor:default}
+.fl-cal-cell.has-catch{background:#f5efda;border-color:var(--brass)}
+.fl-cal-cell.is-sel{box-shadow:0 0 0 2px var(--rust);border-color:var(--rust)}
+.fl-cal-num{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink)}
+.fl-cal-dots{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+.fl-cal-dots i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.fl-cal-dots em{font-family:'Space Mono',monospace;font-style:normal;font-size:10px;color:var(--rust);font-weight:700;margin-left:2px}
+.fl-daylist{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.fl-day-trip{border-bottom:1px dashed var(--line);padding:8px 0}
+.fl-day-trip-head{font-size:14px;display:flex;align-items:center;gap:8px}
+.fl-day-stop{font-size:13px;color:var(--ink-soft);padding:2px 0 2px 8px}
+.fl-mapinfo{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px;background:var(--pine);color:var(--paper);font-family:'Space Mono',monospace;font-size:12px;line-height:1.6;border-radius:8px}
+.fl-mapinfo .fl-dot{width:12px;height:12px;margin-top:3px}
+.fl-mapinfo-hint{background:var(--paper-2);color:var(--ink-soft);font-style:italic}
+.fl-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;font-style:italic}
+.fl-note .leg{display:inline-flex;align-items:center;gap:4px;margin-left:12px;font-style:normal;font-family:'Space Mono',monospace;font-size:11px}
+.fl-note .leg i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.fl-statsgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.fl-statcard{text-align:center;margin-bottom:0}
+.fl-statnum{font-family:'Fraunces',serif;font-weight:900;font-size:32px;color:var(--rust);line-height:1}
+.fl-statlbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-top:4px}
+.fl-wide{grid-column:span 4;margin-bottom:0}
+.fl-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.fl-bar-label{font-size:13px;width:150px;flex:none;text-align:right;color:var(--ink)}
+.fl-bar-track{flex:1;height:14px;background:var(--paper-2);border-radius:7px;overflow:hidden}
+.fl-bar-fill{display:block;height:100%;border-radius:7px}
+.fl-bar-num{font-family:'Space Mono',monospace;font-size:12px;width:30px;color:var(--ink-soft)}
+.fl-months{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:10px}
+.fl-month{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.fl-month-num{font-family:'Space Mono',monospace;font-size:9px;color:var(--rust);margin-bottom:2px;font-weight:700}
+.fl-month-bar{width:100%;background:var(--teal);border-radius:3px 3px 0 0;min-height:2px}
+.fl-month-lbl{font-family:'Space Mono',monospace;font-size:9px;color:var(--ink-soft);margin-top:4px}
+.fl-pb{font-size:14px;padding:5px 0;display:flex;align-items:center;gap:7px}
+.fl-tally{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-soft);padding-left:17px;line-height:1.6}
+.fl-tally b{color:var(--ink)}
+.fl-filterbar{background:var(--pine);border-radius:10px;padding:14px 16px;margin-bottom:14px;color:var(--paper)}
+.fl-filter-modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.fl-fmode{font-family:'Space Mono',monospace;font-size:11px;padding:6px 12px;border:1px solid rgba(255,255,255,.25);border-radius:20px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s}
+.fl-fmode:hover{background:rgba(255,255,255,.12);color:#fff}
+.fl-fmode.is-active{background:var(--rust);border-color:var(--rust);color:#fff;font-weight:700}
+.fl-filter-row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fl-filter-loc{font-family:'Space Mono',monospace;font-size:12px;padding:7px 10px;border:1px solid rgba(255,255,255,.25);border-radius:7px;background:rgba(255,255,255,.08);color:#fff;width:auto;min-width:140px}
+.fl-filter-loc option{background:var(--pine);color:#fff}
+.fl-fclear{font-family:'Space Mono',monospace;font-size:11px;padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;margin-left:auto}
+.fl-fclear:hover{color:#fff;background:rgba(255,255,255,.1)}
+.fl-filter-active{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.7);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}
+.fl-filter-active b{color:#fff}
+.fl-filter-cal-wrap{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15)}
+.fl-frange-hint{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.65);margin-bottom:10px}
+.fl-fcal{background:rgba(255,255,255,.07);border-radius:8px;padding:12px}
+.fl-fcal-head{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px}
+.fl-fcal-title{font-family:'Fraunces',serif;font-weight:600;font-size:16px;color:#fff}
+.fl-fcal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.fl-fcal-dow{font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);text-align:center;padding-bottom:4px}
+.fl-fcal-day{font-family:'Space Mono',monospace;font-size:12px;padding:6px 2px;border:1px solid transparent;border-radius:5px;background:transparent;color:rgba(255,255,255,.75);cursor:pointer;text-align:center;transition:all .12s;width:100%}
+.fl-fcal-day:hover{background:rgba(255,255,255,.15);color:#fff}
+.fl-fcal-day.in-range{background:rgba(47,125,122,.4);color:#fff}
+.fl-fcal-day.is-from,.fl-fcal-day.is-to{background:var(--rust);color:#fff;font-weight:700;border-color:var(--rust)}
+.fl-filter-badge{font-family:'Space Mono',monospace;font-size:13px;font-weight:400;color:var(--ink-soft);margin-left:10px}
+.fl-filter-label-row{font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-soft);margin-bottom:0;grid-column:span 4}
+.fl-filter-label-row b{color:var(--pine)}
+.fl-io-bar{max-width:1000px;margin:16px auto 0;padding:0 24px}
+.fl-io-inner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--pine);border-radius:10px 10px 0 0;padding:12px 16px}
+.fl-io-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;color:rgba(255,255,255,.6);text-transform:uppercase;margin-right:4px}
+.fl-io-btn{font-family:'Space Mono',monospace;font-size:12px;padding:7px 14px;border:1px solid rgba(255,255,255,.25);border-radius:7px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;transition:all .15s;white-space:nowrap}
+.fl-io-btn:hover{background:rgba(255,255,255,.2)}
+.fl-io-btn:disabled{opacity:.5;cursor:not-allowed}
+.fl-io-btn-go{background:var(--teal)!important;border-color:var(--teal-deep)!important;font-weight:700}
+.fl-io-btn-out{border-color:rgba(255,100,100,.4)!important;color:rgba(255,180,180,.8)!important}
+.fl-io-btn-paste{border-color:rgba(255,255,255,.35)!important}
+.fl-io-who{font-family:'Space Mono',monospace;font-size:11px;color:#7ed4a0;white-space:nowrap}
+.fl-io-msg{font-family:'Space Mono',monospace;font-size:11px;margin-left:auto}
+.fl-io-ok{color:#7ed4a0}
+.fl-io-err{color:#f4a07a}
+.fl-io-panel{background:rgba(0,0,0,.25);border-top:1px solid rgba(255,255,255,.12);padding:14px 16px}
+.fl-io-panel-title{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,.7);margin-bottom:10px;line-height:1.5}
+.fl-io-ta{width:100%;height:140px;font-family:'Space Mono',monospace;font-size:11px;background:rgba(0,0,0,.3);color:#b8d4c8;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:10px;resize:vertical;line-height:1.5}
+.fl-io-panel-actions{display:flex;gap:8px;margin-top:10px}
+.fl-io-hint{font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);background:var(--pine);border-radius:0 0 10px 10px;padding:6px 16px 10px;border-top:1px solid rgba(255,255,255,.08)}
+.fl-io-hint b{color:rgba(255,255,255,.85)}
+.fl-foot{text-align:center;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-soft);margin-top:20px}
+@media(max-width:680px){
+  .fl-head{padding:18px 14px 12px;gap:12px}
+  .fl-head-rose{font-size:34px}
+  .fl-title{font-size:27px}
+  .fl-tabs{padding:0 14px}
+  .fl-tab{padding:8px 10px;font-size:10px}
+  .fl-main{padding:14px}
+  .fl-card{padding:15px}
+  .fl-grid{grid-template-columns:repeat(2,1fr)}
+  .fl-field-wide{grid-column:span 2}
+  .fl-statsgrid{grid-template-columns:repeat(2,1fr)}
+  .fl-wide{grid-column:span 2}
+  .fl-filter-label-row{grid-column:span 2}
+  .fl-bar-label{width:90px;font-size:11px}
+  .fl-leaflet{height:260px}
+  .fl-leaflet-picker{height:220px}
+  .fl-filter-modes{gap:4px}
+  .fl-fmode{font-size:10px;padding:5px 9px}
+  .fl-io-bar{padding:0 14px}
+}
+@media(min-width:760px){.fl-wide{grid-column:span 2}}
+  </style>
+</head>
+<body>
+<div id="root"><div style="text-align:center;padding:60px;font-family:Georgia,serif;color:#20342b">Loading Marsh Logbook…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.4/babel.min.js"></script>
+<script async defer src="https://accounts.google.com/gsi/client"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ── Reference data ─────────────────────────────────────────────────────────
+const INSHORE = ["Speckled Trout","Red Drum (Redfish)","Black Drum","Southern Flounder","Sheepshead","White Trout","Sand Trout","Croaker","Tripletail","Jack Crevalle","Ladyfish","Bluefish","Spanish Mackerel","Gafftopsail Catfish","Hardhead Catfish","Largemouth Bass","Striped Bass","Spotted Gar","Mangrove Snapper"];
+const OFFSHORE = ["Red Snapper","Lane Snapper","Vermilion Snapper (Beeliner)","Yellowfin Tuna","Blackfin Tuna","Mahi-Mahi","Wahoo","King Mackerel","Cobia (Ling)","Greater Amberjack","Grouper","Triggerfish","Tarpon","Blue Marlin","White Marlin","Sailfish","Bull Red (offshore)"];
+const SPOTS = [
+  {name:"Leeville Bridge",lat:29.246,lng:-90.211},{name:"Bay Tambour",lat:29.27,lng:-90.30},
+  {name:"Timbalier Bay",lat:29.12,lng:-90.42},{name:"Caminada Bay",lat:29.20,lng:-90.05},
+  {name:"Little Lake",lat:29.45,lng:-90.18},{name:"Golden Meadow Canals",lat:29.38,lng:-90.26},
+  {name:"Catfish Lake",lat:29.33,lng:-90.31},{name:"Belle Pass",lat:29.10,lng:-90.22},
+  {name:"Fourchon Marsh",lat:29.13,lng:-90.19},{name:"Wisner Area",lat:29.30,lng:-90.13},
+];
+const WEATHER=["Sunny","Partly Cloudy","Cloudy","Overcast","Rain","Fog","Windy"];
+const WIND_DIRS=["N","NE","E","SE","S","SW","W","NW"];
+const TIDES=["Incoming","High Slack","Outgoing","Low Slack","Rising","Falling"];
+const MOONS=["New","Waxing Crescent","First Quarter","Waxing Gibbous","Full","Waning Gibbous","Last Quarter","Waning Crescent"];
+const CLARITY=["Clear","Green","Trout Green","Stained","Muddy / Chocolate"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const TROUT="Speckled Trout", REDFISH="Red Drum (Redfish)";
+const TROUT_FIELDS=[{key:"keepers",label:'Keepers 13–20"',kept:true},{key:"over20",label:'Over 20" (max 2)',kept:true},{key:"under",label:'Throwbacks <13"',kept:false}];
+const RED_FIELDS=[{key:"kept",label:'Kept 18–27"',kept:true},{key:"bull",label:'Bull >27" (rel.)',kept:false},{key:"under",label:'Throwbacks <18"',kept:false}];
+const DEFAULT_FIELDS=[{key:"kept",label:"Kept",kept:true},{key:"released",label:"Released",kept:false}];
+const speciesFields=n=>n===TROUT?TROUT_FIELDS:n===REDFISH?RED_FIELDS:DEFAULT_FIELDS;
+const regHint=n=>n===TROUT?'LA limit: 13–20" slot · 15/day · only 2 over 20"':n===REDFISH?'LA limit: 18–27" slot · 4/day · no bulls over 27"':null;
+const GCLIENT_ID="888891365042-6i7g8ic8vs2i9dcc673jvb0j3pm1ilml.apps.googleusercontent.com";
+const GSCOPE="https://www.googleapis.com/auth/drive.file";
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const todayISO=()=>new Date().toISOString().slice(0,10);
+const nowTime=()=>new Date().toTimeString().slice(0,5);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const fmtDate=iso=>{if(!iso)return"";const[y,m,d]=iso.split("-");return`${MONTHS_S[+m-1]} ${+d}, ${y}`;};
+const emptyCatch=(sp=TROUT)=>({id:uid(),species:sp,customSpecies:"",counts:{}});
+const emptyStop=()=>({id:uid(),spot:"Leeville Bridge",lat:"29.246",lng:"-90.211",time:nowTime(),bait:"",catches:[emptyCatch(TROUT)],notes:""});
+const emptyTrip=()=>({id:null,date:todayISO(),notes:"",weather:"Partly Cloudy",airTemp:"",waterTemp:"",windSpeed:"",windDir:"SE",tide:"Incoming",moon:"Waxing Gibbous",pressure:"",clarity:"Green",stops:[emptyStop()]});
+const resolveSpecies=c=>c.species==="__custom"?(c.customSpecies||"Custom"):c.species;
+const speciesColor=n=>n===TROUT?"var(--teal)":n===REDFISH?"var(--rust)":"var(--brass)";
+const speciesHex=n=>n===TROUT?"#2f7d7a":n===REDFISH?"#a8432b":"#b07a2e";
+const num=v=>parseInt(v)||0;
+const catchTotal=c=>speciesFields(c.species).reduce((s,f)=>s+num(c.counts?.[f.key]),0);
+const catchKept=c=>speciesFields(c.species).reduce((s,f)=>s+(f.kept?num(c.counts?.[f.key]):0),0);
+const stopFish=st=>st.catches.reduce((s,c)=>s+catchTotal(c),0);
+const tripFish=t=>t.stops.reduce((s,st)=>s+stopFish(st),0);
+const stopSummary=st=>st.catches.filter(c=>catchTotal(c)>0).map(c=>`${resolveSpecies(c)} ${catchTotal(c)}`).join(", ")||"no fish";
+
+// ── Filter helpers ──────────────────────────────────────────────────────────
+const startOfWeek=iso=>{const d=new Date(iso+"T00:00");d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);};
+const endOfWeek=iso=>{const d=new Date(iso+"T00:00");d.setDate(d.getDate()+(6-d.getDay()));return d.toISOString().slice(0,10);};
+const startOfMonth=iso=>iso.slice(0,7)+"-01";
+const endOfMonth=iso=>{const[y,m]=iso.split("-");return new Date(+y,+m,0).toISOString().slice(0,10);};
+const applyFilter=(trips,filter)=>{
+  let arr=trips;
+  if(filter.from) arr=arr.filter(t=>t.date>=filter.from);
+  if(filter.to)   arr=arr.filter(t=>t.date<=filter.to);
+  if(filter.spot&&filter.spot!=="all") arr=arr.filter(t=>t.stops.some(st=>st.spot===filter.spot));
+  return arr;
+};
+const filterLabel=f=>{
+  if(!f.from&&!f.to&&(!f.spot||f.spot==="all"))return null;
+  const p=[];
+  if(f.from&&f.to&&f.from===f.to)p.push(fmtDate(f.from));
+  else if(f.from||f.to)p.push(`${f.from?fmtDate(f.from):"start"} → ${f.to?fmtDate(f.to):"today"}`);
+  if(f.spot&&f.spot!=="all")p.push(f.spot);
+  return p.join("  ·  ");
+};
+
+// ── Storage (localStorage) ─────────────────────────────────────────────────
+const storageGet=key=>{try{return localStorage.getItem(key);}catch(e){return null;}};
+const storageSet=(key,val)=>{try{localStorage.setItem(key,val);}catch(e){console.error(e);}};
+
+// ── FilterBar ──────────────────────────────────────────────────────────────
+function FilterBar({filter,setFilter,allSpots}){
+  const [showCal,setShowCal]=useState(false);
+  const [calCursor,setCalCursor]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
+  const [picking,setPicking]=useState(null);
+  const today=todayISO();
+  const lws=()=>{const d=new Date(today+"T00:00");d.setDate(d.getDate()-d.getDay()-7);return d.toISOString().slice(0,10);};
+  const lwe=()=>{const d=new Date(today+"T00:00");d.setDate(d.getDate()-d.getDay()-1);return d.toISOString().slice(0,10);};
+  const lms=()=>{const[y,m]=today.split("-");return new Date(+y,+m-2,1).toISOString().slice(0,10);};
+  const lme=()=>{const[y,m]=today.split("-");return new Date(+y,+m-1,0).toISOString().slice(0,10);};
+  const setQuick=mode=>{
+    setShowCal(false);setPicking(null);
+    if(mode==="today"){setFilter(f=>({...f,from:today,to:today}));return;}
+    if(mode==="week"){setFilter(f=>({...f,from:startOfWeek(today),to:endOfWeek(today)}));return;}
+    if(mode==="lastweek"){setFilter(f=>({...f,from:lws(),to:lwe()}));return;}
+    if(mode==="month"){setFilter(f=>({...f,from:startOfMonth(today),to:endOfMonth(today)}));return;}
+    if(mode==="lastmonth"){setFilter(f=>({...f,from:lms(),to:lme()}));return;}
+    if(mode==="year"){setFilter(f=>({...f,from:today.slice(0,4)+"-01-01",to:today.slice(0,4)+"-12-31"}));return;}
+    if(mode==="all"){setFilter(f=>({...f,from:"",to:""}));return;}
+  };
+  const aq=()=>{
+    if(!filter.from&&!filter.to)return"all";
+    if(filter.from===today&&filter.to===today)return"today";
+    if(filter.from===startOfWeek(today)&&filter.to===endOfWeek(today))return"week";
+    if(filter.from===lws()&&filter.to===lwe())return"lastweek";
+    if(filter.from===startOfMonth(today)&&filter.to===endOfMonth(today))return"month";
+    if(filter.from===lms()&&filter.to===lme())return"lastmonth";
+    if(filter.from===today.slice(0,4)+"-01-01"&&filter.to===today.slice(0,4)+"-12-31")return"year";
+    return"custom";
+  };
+  const onCalDay=iso=>{
+    if(!picking||picking==="from"){setFilter(f=>({...f,from:iso,to:iso}));setPicking("to");}
+    else{const[a,b]=iso<filter.from?[iso,filter.from]:[filter.from,iso];setFilter(f=>({...f,from:a,to:b}));setPicking(null);setShowCal(false);}
+  };
+  const clear=()=>{setFilter({from:"",to:"",spot:"all"});setShowCal(false);setPicking(null);};
+  const label=filterLabel(filter);
+  const{y,m}=calCursor;
+  const firstDow=new Date(y,m,1).getDay(),daysInMonth=new Date(y,m+1,0).getDate();
+  const cells=[];for(let i=0;i<firstDow;i++)cells.push(null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+  return(
+    <div className="fl-filterbar">
+      <div className="fl-filter-modes">
+        {[["all","All Time"],["today","Today"],["week","This Week"],["lastweek","Last Week"],["month","This Month"],["lastmonth","Last Month"],["year","This Year"],["custom","Custom Range"]].map(([k,lbl])=>(
+          <button key={k} className={"fl-fmode"+(aq()===k?" is-active":"")} onClick={()=>k==="custom"?setShowCal(v=>!v):setQuick(k)}>{lbl}</button>
+        ))}
+      </div>
+      <div className="fl-filter-row2">
+        <select className="fl-filter-loc" value={filter.spot||"all"} onChange={e=>setFilter(f=>({...f,spot:e.target.value}))}>
+          <option value="all">All locations</option>
+          {allSpots.map(s=><option key={s}>{s}</option>)}
+        </select>
+        {label&&<button className="fl-fclear" onClick={clear}>✕ Clear filter</button>}
+      </div>
+      {label&&<div className="fl-filter-active">Showing: <b>{label}</b></div>}
+      {showCal&&(
+        <div className="fl-filter-cal-wrap">
+          <div className="fl-frange-hint">{!picking||picking==="from"?"Tap a start date":`Start: ${fmtDate(filter.from)} — now tap an end date`}</div>
+          <div className="fl-fcal">
+            <div className="fl-fcal-head">
+              <button className="fl-mini" style={{background:"rgba(255,255,255,.12)",borderColor:"rgba(255,255,255,.2)",color:"#fff"}} onClick={()=>setCalCursor(c=>c.m===0?{y:c.y-1,m:11}:{y:c.y,m:c.m-1})}>‹</button>
+              <span className="fl-fcal-title">{MONTHS[m]} {y}</span>
+              <button className="fl-mini" style={{background:"rgba(255,255,255,.12)",borderColor:"rgba(255,255,255,.2)",color:"#fff"}} onClick={()=>setCalCursor(c=>c.m===11?{y:c.y+1,m:0}:{y:c.y,m:c.m+1})}>›</button>
+            </div>
+            <div className="fl-fcal-grid">
+              {DOW.map(d=><div key={d} className="fl-fcal-dow">{d.slice(0,1)}</div>)}
+              {cells.map((iso,i)=>{
+                if(!iso)return<div key={i}/>;
+                return(<button key={iso} onClick={()=>onCalDay(iso)}
+                  className={"fl-fcal-day"+(iso===filter.from?" is-from":"")+(iso===filter.to&&iso!==filter.from?" is-to":"")+(filter.from&&filter.to&&iso>filter.from&&iso<filter.to?" in-range":"")}>
+                  {Number(iso.slice(8))}
+                </button>);
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── LeafletCatchMap ────────────────────────────────────────────────────────
+function LeafletCatchMap({clusters,onSelect}){
+  const divRef=useRef(null),mapRef=useRef(null),layerRef=useRef(null);
+  const buildMarkers=useCallback((L,list)=>{
+    layerRef.current?.clearLayers();
+    list.forEach(cl=>{
+      const r=Math.min(34,10+cl.count*2.2),hex=speciesHex(cl.dominant);
+      const html=`<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${hex};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:monospace;font-size:${r>14?13:11}px">${cl.count}</div>`;
+      const icon=L.divIcon({html,className:"",iconSize:[r*2,r*2],iconAnchor:[r,r]});
+      const mk=L.marker([cl.lat,cl.lng],{icon});
+      const tip=Object.entries(cl.species).map(([s,n])=>`<span style="display:block">${s}: <b>${n}</b></span>`).join("");
+      mk.bindPopup(`<b style="font-size:14px">${cl.name}</b><br/>${tip}`,{maxWidth:220});
+      mk.on("click",()=>onSelect(cl));
+      mk.addTo(layerRef.current);
+    });
+    if(list.length>0){
+      const lats=list.map(c=>c.lat),lngs=list.map(c=>c.lng);
+      mapRef.current.fitBounds([[Math.min(...lats)-.02,Math.min(...lngs)-.02],[Math.max(...lats)+.02,Math.max(...lngs)+.02]],{maxZoom:13});
+    }
+  },[onSelect]);
+  useEffect(()=>{
+    if(!divRef.current||mapRef.current)return;
+    const L=window.L;
+    mapRef.current=L.map(divRef.current,{zoomControl:true,scrollWheelZoom:true}).setView([29.22,-90.27],10);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:18}).addTo(mapRef.current);
+    layerRef.current=L.layerGroup().addTo(mapRef.current);
+    buildMarkers(L,clusters);
+  },[]);
+  useEffect(()=>{if(mapRef.current)buildMarkers(window.L,clusters);},[clusters]);
+  return <div ref={divRef} className="fl-leaflet"/>;
+}
+
+// ── LeafletPicker ──────────────────────────────────────────────────────────
+function LeafletPicker({lat,lng,onPick}){
+  const divRef=useRef(null),mapRef=useRef(null),pinRef=useRef(null);
+  useEffect(()=>{
+    if(!divRef.current||mapRef.current)return;
+    const L=window.L,sLat=isNaN(lat)?29.246:lat,sLng=isNaN(lng)?-90.211:lng;
+    mapRef.current=L.map(divRef.current,{zoomControl:true,scrollWheelZoom:false}).setView([sLat,sLng],12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'© OSM',maxZoom:18}).addTo(mapRef.current);
+    const icon=L.divIcon({html:`<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#a8432b;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`,className:"",iconSize:[22,22],iconAnchor:[11,22]});
+    pinRef.current=L.marker([sLat,sLng],{icon,draggable:true}).addTo(mapRef.current);
+    pinRef.current.on("dragend",e=>{const p=e.target.getLatLng();onPick(p.lat,p.lng);});
+    mapRef.current.on("click",e=>{pinRef.current.setLatLng(e.latlng);onPick(e.latlng.lat,e.latlng.lng);});
+  },[]);
+  useEffect(()=>{if(pinRef.current&&!isNaN(lat)&&!isNaN(lng))pinRef.current.setLatLng([lat,lng]);},[lat,lng]);
+  return <div ref={divRef} className="fl-leaflet fl-leaflet-picker"/>;
+}
+
+// ── Calendar ───────────────────────────────────────────────────────────────
+function Calendar({cursor,setCursor,trips,selectedDay,setSelectedDay,onEdit,onDel}){
+  const{y,m}=cursor;
+  const startDow=new Date(y,m,1).getDay(),daysInMonth=new Date(y,m+1,0).getDate();
+  const byDay={};
+  trips.forEach(t=>{const d=new Date(t.date+"T00:00");if(d.getFullYear()===y&&d.getMonth()===m)(byDay[d.getDate()]=byDay[d.getDate()]||[]).push(t);});
+  const cells=[];for(let i=0;i<startDow;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  const dayTrips=selectedDay?(byDay[selectedDay]||[]):[];
+  return(
+    <div className="fl-card">
+      <div className="fl-calhead">
+        <button className="fl-mini" onClick={()=>{setSelectedDay(null);setCursor(m===0?{y:y-1,m:11}:{y,m:m-1});}}>‹</button>
+        <h2 className="fl-h2" style={{margin:0}}>{MONTHS[m]} {y}</h2>
+        <button className="fl-mini" onClick={()=>{setSelectedDay(null);setCursor(m===11?{y:y+1,m:0}:{y,m:m+1});}}>›</button>
+      </div>
+      <div className="fl-cal">
+        {DOW.map(d=><div key={d} className="fl-cal-dow">{d}</div>)}
+        {cells.map((d,i)=>{
+          if(!d)return<div key={i} className="fl-cal-cell fl-cal-empty"/>;
+          const list=byDay[d]||[],total=list.reduce((s,t)=>s+tripFish(t),0);
+          const sps=[...new Set(list.flatMap(t=>t.stops.flatMap(st=>st.catches.filter(c=>catchTotal(c)>0).map(resolveSpecies))))];
+          return(
+            <button key={i} className={"fl-cal-cell"+(selectedDay===d?" is-sel":"")+(list.length?" has-catch":"")} onClick={()=>setSelectedDay(selectedDay===d?null:d)}>
+              <span className="fl-cal-num">{d}</span>
+              {list.length>0&&<span className="fl-cal-dots">{sps.slice(0,3).map((s,j)=><i key={j} style={{background:speciesColor(s)}}/>)}<em>{total}</em></span>}
+            </button>
+          );
+        })}
+      </div>
+      {selectedDay&&(
+        <div className="fl-daylist">
+          <h3 className="fl-h3">{MONTHS[m]} {selectedDay}</h3>
+          {dayTrips.length===0?<div className="fl-empty">No trips this day.</div>:
+            dayTrips.map(t=>(
+              <div key={t.id} className="fl-day-trip">
+                <div className="fl-day-trip-head"><b>{tripFish(t)} fish</b> · {t.stops.length} stops
+                  <button className="fl-mini" onClick={()=>onEdit(t)}>edit</button>
+                  <button className="fl-mini fl-mini-del" onClick={()=>onDel(t.id)}>×</button>
+                </div>
+                {t.stops.map((st,i)=><div key={st.id} className="fl-day-stop">↳ {st.spot} ({st.time}): {stopSummary(st)}</div>)}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({label,children,wide}){
+  return(<label className={"fl-field"+(wide?" fl-field-wide":"")}>
+    <span className="fl-flabel">{label}</span>{children}
+  </label>);
+}
+function Stat({n,l}){
+  return<div className="fl-card fl-statcard"><div className="fl-statnum">{n}</div><div className="fl-statlbl">{l}</div></div>;
+}
+
+// ── App ────────────────────────────────────────────────────────────────────
+function App(){
+  const [trips,setTrips]=useState([]);
+  const [loaded,setLoaded]=useState(false);
+  const [tab,setTab]=useState("log");
+  const [trip,setTrip]=useState(emptyTrip());
+  const [pickerStopId,setPickerStopId]=useState(null);
+  const [search,setSearch]=useState("");
+  const [cursor,setCursor]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
+  const [selectedDay,setSelectedDay]=useState(null);
+  const [mapInfo,setMapInfo]=useState(null);
+  const [filter,setFilter]=useState({from:"",to:"",spot:"all"});
+  const [gdrive,setGdrive]=useState("idle");
+  const [gToken,setGToken]=useState(null);
+  const [gUser,setGUser]=useState(null);
+  const [showImport,setShowImport]=useState(false);
+  const [importText,setImportText]=useState("");
+  const [ioMsg,setIoMsg]=useState(null);
+
+  useEffect(()=>{
+    const val=storageGet("fishingLog:trips");
+    if(val){try{setTrips(JSON.parse(val));}catch(e){}}
+    setLoaded(true);
+  },[]);
+
+  const persist=next=>{setTrips(next);storageSet("fishingLog:trips",JSON.stringify(next));};
+
+  // ── Google OAuth ──────────────────────────────────────────────────────────
+  const signInGoogle=()=>new Promise((resolve,reject)=>{
+    const init=()=>{
+      const client=window.google.accounts.oauth2.initTokenClient({
+        client_id:GCLIENT_ID,scope:GSCOPE,
+        callback:resp=>{
+          if(resp.error){reject(resp.error);return;}
+          setGToken(resp.access_token);
+          fetch("https://www.googleapis.com/oauth2/v3/userinfo",{headers:{Authorization:`Bearer ${resp.access_token}`}})
+            .then(r=>r.json()).then(u=>setGUser(u.email)).catch(()=>{});
+          resolve(resp.access_token);
+        }
+      });
+      client.requestAccessToken({prompt:gToken?"":"consent"});
+    };
+    if(window.google?.accounts?.oauth2){init();return;}
+    const s=document.createElement("script");
+    s.src="https://accounts.google.com/gsi/client";
+    s.onload=init;s.onerror=()=>reject("Google sign-in failed to load");
+    document.head.appendChild(s);
+  });
+
+  const signOutGoogle=()=>{setGToken(null);setGUser(null);};
+  const getToken=async()=>{if(gToken)return gToken;return signInGoogle();};
+
+  const findFileId=async token=>{
+    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'marsh-logbook.json'+and+trashed%3Dfalse&fields=files(id)&spaces=drive",{headers:{Authorization:`Bearer ${token}`}});
+    if(!r.ok)throw new Error(`Drive search ${r.status}`);
+    const d=await r.json();return d.files?.[0]?.id||null;
+  };
+
+  const saveToGDrive=async()=>{
+    setGdrive("saving");
+    try{
+      const token=await getToken();
+      const json=JSON.stringify({version:1,exported:new Date().toISOString(),trips},null,2);
+      const blob=new Blob([json],{type:"application/json"});
+      const fileId=await findFileId(token);
+      if(fileId){
+        const r=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+          {method:"PATCH",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:blob});
+        if(!r.ok)throw new Error(`Update failed ${r.status}`);
+      }else{
+        const meta=new Blob([JSON.stringify({name:"marsh-logbook.json",mimeType:"application/json"})],{type:"application/json"});
+        const form=new FormData();form.append("metadata",meta);form.append("file",blob);
+        const r=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+          {method:"POST",headers:{Authorization:`Bearer ${token}`},body:form});
+        if(!r.ok)throw new Error(`Create failed ${r.status}`);
+      }
+      setGdrive("idle");setIoMsg({ok:true,text:"✓ Saved to Google Drive"});
+      setTimeout(()=>setIoMsg(null),5000);
+    }catch(err){
+      setGToken(null);setGdrive("error");
+      setIoMsg({ok:false,text:`✗ Save failed: ${err.message}`});
+      setTimeout(()=>{setGdrive("idle");setIoMsg(null);},7000);
+    }
+  };
+
+  const loadFromGDrive=async()=>{
+    setGdrive("loading");
+    try{
+      const token=await getToken();
+      const fileId=await findFileId(token);
+      if(!fileId)throw new Error("marsh-logbook.json not found in your Drive");
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});
+      if(!r.ok)throw new Error(`Download failed ${r.status}`);
+      const data=await r.json();
+      const incoming=data.trips||(Array.isArray(data)?data:null);
+      if(!incoming)throw new Error("Unrecognized file format");
+      const existingIds=new Set(trips.map(t=>t.id));
+      const toAdd=incoming.filter(t=>!existingIds.has(t.id));
+      const merged=[...trips,...toAdd].sort((a,b)=>b.date.localeCompare(a.date));
+      persist(merged);
+      setGdrive("idle");setIoMsg({ok:true,text:`✓ Loaded — ${toAdd.length} new trip${toAdd.length!==1?"s":""} added`});
+      setTimeout(()=>setIoMsg(null),6000);
+    }catch(err){
+      setGToken(null);setGdrive("error");
+      setIoMsg({ok:false,text:`✗ Load failed: ${err.message}`});
+      setTimeout(()=>{setGdrive("idle");setIoMsg(null);},7000);
+    }
+  };
+
+  const importFromText=()=>{
+    try{
+      const raw=importText.trim().replace(/```json/gi,"").replace(/```/g,"");
+      const s=raw.indexOf("{"),e=raw.lastIndexOf("}");
+      const json=s!==-1&&e>s?raw.slice(s,e+1):raw;
+      const data=JSON.parse(json);
+      const incoming=data.trips||(Array.isArray(data)?data:null);
+      if(!incoming)throw new Error("Unrecognized format");
+      const existingIds=new Set(trips.map(t=>t.id));
+      const toAdd=incoming.filter(t=>!existingIds.has(t.id));
+      persist([...trips,...toAdd].sort((a,b)=>b.date.localeCompare(a.date)));
+      setIoMsg({ok:true,text:`✓ Imported ${toAdd.length} new trip${toAdd.length!==1?"s":""}`});
+      setImportText("");setShowImport(false);
+      setTimeout(()=>setIoMsg(null),6000);
+    }catch(err){
+      setIoMsg({ok:false,text:`✗ Import failed: ${err.message}`});
+      setTimeout(()=>setIoMsg(null),6000);
+    }
+  };
+
+  // ── Form helpers ──────────────────────────────────────────────────────────
+  const setTF=(k,v)=>setTrip(t=>({...t,[k]:v}));
+  const patchStop=(sid,p)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,...p}:s)}));
+  const addStop=()=>setTrip(t=>({...t,stops:[...t.stops,emptyStop()]}));
+  const removeStop=sid=>setTrip(t=>({...t,stops:t.stops.length>1?t.stops.filter(s=>s.id!==sid):t.stops}));
+  const addCatch=sid=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:[...s.catches,emptyCatch()]}:s)}));
+  const removeCatch=(sid,cid)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.length>1?s.catches.filter(c=>c.id!==cid):s.catches}:s)}));
+  const patchCatch=(sid,cid,p)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.map(c=>c.id===cid?{...c,...p}:c)}:s)}));
+  const setCatchCount=(sid,cid,key,val)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.map(c=>c.id===cid?{...c,counts:{...c.counts,[key]:val}}:c)}:s)}));
+  const setCatchSpecies=(sid,cid,sp)=>patchCatch(sid,cid,{species:sp,counts:{}});
+  const onPickSpot=(sid,name)=>{const s=SPOTS.find(x=>x.name===name);if(s)patchStop(sid,{spot:name,lat:String(s.lat),lng:String(s.lng)});else patchStop(sid,{spot:name});};
+  const onDropPin=(sid,lat,lng)=>patchStop(sid,{lat:lat.toFixed(4),lng:lng.toFixed(4)});
+  const saveTrip=()=>{
+    const rec={...trip,id:trip.id||uid()};
+    const next=trip.id?trips.map(t=>t.id===trip.id?rec:t):[rec,...trips];
+    persist(next);setTrip(emptyTrip());setPickerStopId(null);setTab("list");
+  };
+  const editTrip=t=>{setTrip(JSON.parse(JSON.stringify(t)));setPickerStopId(null);setTab("log");};
+  const delTrip=id=>{if(window.confirm("Delete this whole trip?"))persist(trips.filter(t=>t.id!==id));};
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const allLoggedSpots=useMemo(()=>[...new Set(trips.flatMap(t=>t.stops.map(st=>st.spot)))].sort(),[trips]);
+  const filteredBase=useMemo(()=>applyFilter(trips,filter),[trips,filter]);
+  const listTrips=useMemo(()=>{
+    const arr=[...filteredBase].sort((a,b)=>b.date.localeCompare(a.date));
+    if(!search)return arr;
+    const q=search.toLowerCase();
+    return arr.filter(t=>[t.notes,...t.stops.flatMap(s=>[s.spot,s.bait,s.notes,...s.catches.map(resolveSpecies)])].join(" ").toLowerCase().includes(q));
+  },[filteredBase,search]);
+  const clusters=useMemo(()=>{
+    const m={};
+    filteredBase.forEach(t=>t.stops.forEach(st=>{
+      const lat=parseFloat(st.lat),lng=parseFloat(st.lng);if(isNaN(lat)||isNaN(lng))return;
+      const key=st.spot||`${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if(!m[key])m[key]={key,name:st.spot||"Unnamed",lat,lng,count:0,species:{}};
+      m[key].lat=lat;m[key].lng=lng;
+      st.catches.forEach(c=>{const tot=catchTotal(c);if(!tot)return;const sp=resolveSpecies(c);m[key].count+=tot;m[key].species[sp]=(m[key].species[sp]||0)+tot;});
+    }));
+    return Object.values(m).filter(c=>c.count>0).map(cl=>{const dom=Object.entries(cl.species).sort((a,b)=>b[1]-a[1])[0];return{...cl,dominant:dom?dom[0]:""};});
+  },[filteredBase]);
+  const stats=useMemo(()=>{
+    let total=0,kept=0;const bySpecies={},bySpot={},byMonth=Array(12).fill(0),tide={},moon={},clar={};
+    const troutTally={keepers:0,over20:0,under:0},redTally={kept:0,bull:0,under:0};
+    filteredBase.forEach(t=>{
+      const mo=num(t.date.slice(5,7))-1,tf=tripFish(t);
+      if(tf>0){tide[t.tide]=(tide[t.tide]||0)+tf;moon[t.moon]=(moon[t.moon]||0)+tf;if(t.clarity)clar[t.clarity]=(clar[t.clarity]||0)+tf;}
+      t.stops.forEach(st=>{
+        const sf=stopFish(st);if(sf>0){bySpot[st.spot]=(bySpot[st.spot]||0)+sf;if(mo>=0)byMonth[mo]+=sf;}
+        st.catches.forEach(c=>{
+          const tot=catchTotal(c);if(!tot)return;total+=tot;kept+=catchKept(c);
+          const sp=resolveSpecies(c);bySpecies[sp]=(bySpecies[sp]||0)+tot;
+          if(c.species===TROUT)TROUT_FIELDS.forEach(f=>troutTally[f.key]+=num(c.counts?.[f.key]));
+          if(c.species===REDFISH)RED_FIELDS.forEach(f=>redTally[f.key]+=num(c.counts?.[f.key]));
+        });
+      });
+    });
+    const top1=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0];
+    return{total,kept,released:total-kept,bySpeciesArr:Object.entries(bySpecies).sort((a,b)=>b[1]-a[1]),topSpots:Object.entries(bySpot).sort((a,b)=>b[1]-a[1]).slice(0,5),byMonth,maxMonth:Math.max(1,...byMonth),hotTide:top1(tide),hotMoon:top1(moon),hotClar:top1(clar),troutTally,redTally,trips:filteredBase.length};
+  },[filteredBase]);
+
+  const TABS=[["log","✚ Log Trip"],["list","Logbook"],["calendar","Calendar"],["map","Chart"],["stats","Trends"]];
+  const showFilter=["list","map","stats"].includes(tab);
+
+  return(
+    <div>
+      <header className="fl-head">
+        <div className="fl-head-rose" aria-hidden>✺</div>
+        <div className="fl-head-text">
+          <div className="fl-kicker">Leeville · Louisiana · Barataria–Timbalier Basin</div>
+          <h1 className="fl-title">The Marsh Logbook</h1>
+          <div className="fl-sub">Trips, stops &amp; counts — specks, reds &amp; whatever else bites</div>
+        </div>
+        <div className="fl-head-stat">
+          <div className="fl-bignum">{stats.total}</div>
+          <div className="fl-biglabel">{filterLabel(filter)?"filtered":"total"} fish</div>
+        </div>
+      </header>
+
+      <nav className="fl-tabs">
+        {TABS.map(([k,label])=>(
+          <button key={k} className={"fl-tab"+(tab===k?" is-active":"")} onClick={()=>setTab(k)}>{label}</button>
+        ))}
+      </nav>
+
+      <main className="fl-main">
+        {!loaded&&<div className="fl-empty">Loading your logbook…</div>}
+
+        {loaded&&showFilter&&<FilterBar filter={filter} setFilter={setFilter} allSpots={allLoggedSpots}/>}
+
+        {/* LOG TRIP */}
+        {loaded&&tab==="log"&&(
+          <div>
+            <div className="fl-card">
+              <h2 className="fl-h2">{trip.id?"Edit Trip":"New Trip"}</h2>
+              <div className="fl-grid">
+                <Field label="Trip date"><input type="date" value={trip.date} onChange={e=>setTF("date",e.target.value)}/></Field>
+                <Field label="Trip notes" wide><input value={trip.notes} placeholder="who, boat, overall day…" onChange={e=>setTF("notes",e.target.value)}/></Field>
+              </div>
+              <div className="fl-subhead">Conditions <span className="fl-subhead-note">— for the whole trip</span></div>
+              <div className="fl-grid">
+                <Field label="Sky"><select value={trip.weather} onChange={e=>setTF("weather",e.target.value)}>{WEATHER.map(w=><option key={w}>{w}</option>)}</select></Field>
+                <Field label="Air °F"><input type="number" value={trip.airTemp} onChange={e=>setTF("airTemp",e.target.value)}/></Field>
+                <Field label="Water °F"><input type="number" value={trip.waterTemp} onChange={e=>setTF("waterTemp",e.target.value)}/></Field>
+                <Field label="Wind mph"><input type="number" value={trip.windSpeed} onChange={e=>setTF("windSpeed",e.target.value)}/></Field>
+                <Field label="Wind dir"><select value={trip.windDir} onChange={e=>setTF("windDir",e.target.value)}>{WIND_DIRS.map(w=><option key={w}>{w}</option>)}</select></Field>
+                <Field label="Tide"><select value={trip.tide} onChange={e=>setTF("tide",e.target.value)}>{TIDES.map(t=><option key={t}>{t}</option>)}</select></Field>
+                <Field label="Moon"><select value={trip.moon} onChange={e=>setTF("moon",e.target.value)}>{MOONS.map(mn=><option key={mn}>{mn}</option>)}</select></Field>
+                <Field label="Pressure"><input type="number" step="0.01" value={trip.pressure} placeholder="30.05" onChange={e=>setTF("pressure",e.target.value)}/></Field>
+                <Field label="Clarity"><select value={trip.clarity} onChange={e=>setTF("clarity",e.target.value)}>{CLARITY.map(c=><option key={c}>{c}</option>)}</select></Field>
+              </div>
+            </div>
+
+            {trip.stops.map((st,i)=>(
+              <div key={st.id} className="fl-card fl-stop">
+                <div className="fl-stop-head">
+                  <span className="fl-stop-badge">Stop {i+1}</span>
+                  <span className="fl-stop-fish">{stopFish(st)} fish</span>
+                  {trip.stops.length>1&&<button className="fl-mini fl-mini-del" style={{marginLeft:"auto"}} onClick={()=>removeStop(st.id)}>remove stop</button>}
+                </div>
+                <div className="fl-grid">
+                  <Field label="Spot" wide><input list="spotlist" value={st.spot} placeholder="Pick or name a spot" onChange={e=>onPickSpot(st.id,e.target.value)}/></Field>
+                  <Field label="Time"><input type="time" value={st.time} onChange={e=>patchStop(st.id,{time:e.target.value})}/></Field>
+                  <Field label="Latitude"><input type="number" step="0.0001" value={st.lat} onChange={e=>patchStop(st.id,{lat:e.target.value})}/></Field>
+                  <Field label="Longitude"><input type="number" step="0.0001" value={st.lng} onChange={e=>patchStop(st.id,{lng:e.target.value})}/></Field>
+                  <Field label="Set location">
+                    <button type="button" className={"fl-toggle"+(pickerStopId===st.id?" is-on":"")} onClick={()=>setPickerStopId(pickerStopId===st.id?null:st.id)}>
+                      {pickerStopId===st.id?"✓ Close map":"📍 Drop pin on map"}
+                    </button>
+                  </Field>
+                </div>
+                {pickerStopId===st.id&&(
+                  <div className="fl-pickwrap">
+                    <p className="fl-note">Tap anywhere on the map to drop this stop's pin.</p>
+                    <LeafletPicker lat={parseFloat(st.lat)} lng={parseFloat(st.lng)} onPick={(lat,lng)=>onDropPin(st.id,lat,lng)}/>
+                  </div>
+                )}
+                <div className="fl-grid" style={{marginTop:12}}>
+                  <Field label="Bait / Lure" wide><input value={st.bait} placeholder="Matrix Shad, live shrimp…" onChange={e=>patchStop(st.id,{bait:e.target.value})}/></Field>
+                </div>
+                <div className="fl-subhead">Catches at this stop</div>
+                {st.catches.map(c=>(
+                  <div key={c.id} className="fl-catchrow" style={{borderLeftColor:speciesColor(resolveSpecies(c))}}>
+                    <div className="fl-catch-top">
+                      <select className="fl-catch-sp" value={c.species} onChange={e=>setCatchSpecies(st.id,c.id,e.target.value)}>
+                        <optgroup label="Inshore">{INSHORE.map(s=><option key={s}>{s}</option>)}</optgroup>
+                        <optgroup label="Offshore">{OFFSHORE.map(s=><option key={s}>{s}</option>)}</optgroup>
+                        <option value="__custom">＋ Custom species…</option>
+                      </select>
+                      {st.catches.length>1&&<button className="fl-mini fl-mini-del" onClick={()=>removeCatch(st.id,c.id)}>×</button>}
+                    </div>
+                    {c.species==="__custom"&&<input className="fl-custom" value={c.customSpecies} placeholder="Type species name" onChange={e=>patchCatch(st.id,c.id,{customSpecies:e.target.value})}/>}
+                    <div className="fl-counts">
+                      {speciesFields(c.species).map(f=>(
+                        <label key={f.key} className="fl-count">
+                          <span className="fl-count-lbl">{f.label}</span>
+                          <input type="number" min="0" inputMode="numeric" value={c.counts?.[f.key]??""} placeholder="0" onChange={e=>setCatchCount(st.id,c.id,f.key,e.target.value)}/>
+                        </label>
+                      ))}
+                    </div>
+                    {regHint(c.species)&&<div className="fl-reghint">⚖ {regHint(c.species)}</div>}
+                  </div>
+                ))}
+                <button className="fl-btn fl-btn-ghost" onClick={()=>addCatch(st.id)}>＋ Add species</button>
+                <Field label="Stop notes" wide><input value={st.notes} placeholder="how it fished…" onChange={e=>patchStop(st.id,{notes:e.target.value})}/></Field>
+              </div>
+            ))}
+
+            <button className="fl-btn fl-btn-add" onClick={addStop}>＋ Add another stop</button>
+            <div className="fl-actions">
+              <button className="fl-btn fl-btn-primary" onClick={saveTrip}>{trip.id?"Save Trip":"Log Trip"}</button>
+              {trip.id&&<button className="fl-btn" onClick={()=>{setTrip(emptyTrip());setPickerStopId(null);}}>Cancel</button>}
+            </div>
+          </div>
+        )}
+
+        {/* LOGBOOK */}
+        {loaded&&tab==="list"&&(
+          <div>
+            <div className="fl-card fl-controls">
+              <input className="fl-search" placeholder="Search spot, species, bait, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
+            </div>
+            {listTrips.length===0
+              ?<div className="fl-empty">{filterLabel(filter)?"No trips match this filter.":"No trips yet — head to Log Trip."}</div>
+              :listTrips.map(t=>(
+              <div key={t.id} className="fl-card fl-trip">
+                <div className="fl-trip-head">
+                  <div><span className="fl-trip-date">{t.date}</span><span className="fl-trip-total">{tripFish(t)} fish · {t.stops.length} stop{t.stops.length>1?"s":""}</span></div>
+                  <div className="fl-entry-btns">
+                    <button className="fl-mini" onClick={()=>editTrip(t)}>edit</button>
+                    <button className="fl-mini fl-mini-del" onClick={()=>delTrip(t.id)}>×</button>
+                  </div>
+                </div>
+                {t.notes&&<div className="fl-entry-notes">{t.notes}</div>}
+                <div className="fl-entry-cond">
+                  {t.tide} tide · {t.moon} moon · {t.weather}
+                  {t.waterTemp&&` · ${t.waterTemp}°F water`}{t.airTemp&&` · ${t.airTemp}°F air`}
+                  {t.windSpeed&&` · ${t.windSpeed}mph ${t.windDir}`}{t.pressure&&` · ${t.pressure}inHg`}{t.clarity&&` · ${t.clarity}`}
+                </div>
+                {t.stops.map((st,i)=>(
+                  <div key={st.id} className="fl-trip-stop">
+                    <div className="fl-trip-stop-head"><b>Stop {i+1}: {st.spot}</b> <span className="fl-mono">{st.time}</span></div>
+                    <div className="fl-catch-pills">
+                      {st.catches.filter(c=>catchTotal(c)>0).map(c=>(
+                        <span key={c.id} className="fl-pill" style={{background:speciesColor(resolveSpecies(c))}}>{resolveSpecies(c)} {catchTotal(c)}</span>
+                      ))}
+                      {stopFish(st)===0&&<span className="fl-pill fl-pill-zero">no fish</span>}
+                    </div>
+                    {(st.bait||st.notes)&&<div className="fl-entry-cond">{st.bait}{st.bait&&st.notes?" · ":""}{st.notes}</div>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CALENDAR */}
+        {loaded&&tab==="calendar"&&(
+          <Calendar cursor={cursor} setCursor={setCursor} trips={trips}
+            selectedDay={selectedDay} setSelectedDay={setSelectedDay} onEdit={editTrip} onDel={delTrip}/>
+        )}
+
+        {/* CHART */}
+        {loaded&&tab==="map"&&(
+          <div className="fl-card">
+            <h2 className="fl-h2">Catch Chart {filterLabel(filter)&&<span className="fl-filter-badge">filtered</span>}</h2>
+            <p className="fl-note">Pins sized by fish landed, colored by top species. Pinch/scroll to zoom.&nbsp;
+              <span className="leg"><i style={{background:"var(--teal)"}}/>Trout</span>
+              <span className="leg"><i style={{background:"var(--rust)"}}/>Redfish</span>
+              <span className="leg"><i style={{background:"var(--brass)"}}/>Other</span>
+            </p>
+            <LeafletCatchMap clusters={clusters} onSelect={setMapInfo}/>
+            {mapInfo
+              ?<div className="fl-mapinfo"><span className="fl-dot" style={{background:speciesColor(mapInfo.dominant)}}/><div><b>{mapInfo.name}</b> — {mapInfo.count} fish<br/><span style={{fontSize:11,opacity:.85}}>{Object.entries(mapInfo.species).map(([s,n])=>`${s} (${n})`).join(" · ")}</span></div></div>
+              :clusters.length>0?<div className="fl-mapinfo fl-mapinfo-hint">Tap a pin to see the spot &amp; catch breakdown.</div>
+              :<div className="fl-empty">No catches match this filter.</div>}
+          </div>
+        )}
+
+        {/* TRENDS */}
+        {loaded&&tab==="stats"&&(
+          <div className="fl-statsgrid">
+            {filterLabel(filter)&&<div className="fl-card fl-filter-label-row">📊 Trends for: <b>{filterLabel(filter)}</b></div>}
+            <Stat n={stats.total} l="total fish"/><Stat n={stats.kept} l="kept"/><Stat n={stats.released} l="released"/><Stat n={stats.trips} l="trips"/>
+            <div className="fl-card fl-wide">
+              <h3 className="fl-h3">By species</h3>
+              {stats.bySpeciesArr.length===0?<div className="fl-empty">Nothing in this period.</div>:
+                stats.bySpeciesArr.map(([s,n])=>(
+                  <div key={s} className="fl-bar-row">
+                    <span className="fl-bar-label">{s}</span>
+                    <span className="fl-bar-track"><span className="fl-bar-fill" style={{width:`${(n/stats.bySpeciesArr[0][1])*100}%`,background:speciesColor(s)}}/></span>
+                    <span className="fl-bar-num">{n}</span>
+                  </div>
+                ))}
+            </div>
+            <div className="fl-card fl-wide">
+              <h3 className="fl-h3">Fish by month</h3>
+              <div className="fl-months">
+                {stats.byMonth.map((n,i)=>(
+                  <div key={i} className="fl-month">
+                    <div className="fl-month-num" style={{opacity:n>0?1:0}}>{n||""}</div>
+                    <div className="fl-month-bar" style={{height:`${(n/stats.maxMonth)*80+2}px`}}/>
+                    <div className="fl-month-lbl">{MONTHS_S[i].slice(0,1)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="fl-card">
+              <h3 className="fl-h3">Slot tally</h3>
+              <div className="fl-pb"><span className="fl-dot" style={{background:"var(--teal)"}}/> <b>Speckled Trout</b></div>
+              <div className="fl-tally">Keepers 13–20": <b>{stats.troutTally.keepers}</b> · Over 20": <b>{stats.troutTally.over20}</b> · Throwbacks: <b>{stats.troutTally.under}</b></div>
+              <div className="fl-pb" style={{marginTop:8}}><span className="fl-dot" style={{background:"var(--rust)"}}/> <b>Red Drum</b></div>
+              <div className="fl-tally">Kept 18–27": <b>{stats.redTally.kept}</b> · Bulls: <b>{stats.redTally.bull}</b> · Throwbacks: <b>{stats.redTally.under}</b></div>
+            </div>
+            <div className="fl-card">
+              <h3 className="fl-h3">Best bite conditions</h3>
+              <div className="fl-pb">🌊 Tide: <b>{stats.hotTide?`${stats.hotTide[0]} (${stats.hotTide[1]})`:"—"}</b></div>
+              <div className="fl-pb">🌙 Moon: <b>{stats.hotMoon?`${stats.hotMoon[0]} (${stats.hotMoon[1]})`:"—"}</b></div>
+              <div className="fl-pb">💧 Water: <b>{stats.hotClar?`${stats.hotClar[0]} (${stats.hotClar[1]})`:"—"}</b></div>
+              <p className="fl-note">Weighted by fish landed.</p>
+            </div>
+            <div className="fl-card fl-wide">
+              <h3 className="fl-h3">Top spots</h3>
+              {stats.topSpots.length===0?<div className="fl-empty">Nothing in this period.</div>:
+                stats.topSpots.map(([s,n])=>(
+                  <div key={s} className="fl-bar-row">
+                    <span className="fl-bar-label">{s}</span>
+                    <span className="fl-bar-track"><span className="fl-bar-fill" style={{width:`${(n/stats.topSpots[0][1])*100}%`,background:"var(--teal-deep)"}}/></span>
+                    <span className="fl-bar-num">{n}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* IO Bar */}
+      <div className="fl-io-bar">
+        <div className="fl-io-inner">
+          <span className="fl-io-label">☁ Google Drive</span>
+          {!gToken?(
+            <button className="fl-io-btn fl-io-btn-go" onClick={signInGoogle}>🔑 Sign in with Google</button>
+          ):(
+            <>
+              <span className="fl-io-who">✓ {gUser||"Signed in"}</span>
+              <button className="fl-io-btn fl-io-btn-go" onClick={saveToGDrive} disabled={gdrive!=="idle"}>
+                {gdrive==="saving"?"⏳ Saving…":"⬆ Save to Drive"}
+              </button>
+              <button className="fl-io-btn" onClick={loadFromGDrive} disabled={gdrive!=="idle"}>
+                {gdrive==="loading"?"⏳ Loading…":"⬇ Load from Drive"}
+              </button>
+              <button className="fl-io-btn fl-io-btn-out" onClick={signOutGoogle}>Sign out</button>
+            </>
+          )}
+          <button className="fl-io-btn fl-io-btn-paste" onClick={()=>setShowImport(v=>!v)}>📋 Paste</button>
+          {ioMsg&&<span className={"fl-io-msg"+(ioMsg.ok?" fl-io-ok":" fl-io-err")}>{ioMsg.text}</span>}
+        </div>
+        {showImport&&(
+          <div className="fl-io-panel">
+            <div className="fl-io-panel-title">Paste your logbook JSON below, then tap Import</div>
+            <textarea className="fl-io-ta" value={importText} placeholder="Paste logbook JSON here…" onChange={e=>setImportText(e.target.value)}/>
+            <div className="fl-io-panel-actions">
+              <button className="fl-io-btn fl-io-btn-go" onClick={importFromText} disabled={!importText.trim()}>Import</button>
+              <button className="fl-io-btn" onClick={()=>{setShowImport(false);setImportText("");}}>Cancel</button>
+            </div>
+          </div>
+        )}
+        <div className="fl-io-hint">
+          {gToken?<>Signed in · saves as <b>marsh-logbook.json</b> in your Google Drive · sync between any device</>
+                 :<>Sign in with Google to save &amp; sync your logbook between your Surface and iPhone</>}
+        </div>
+      </div>
+
+      <footer className="fl-foot" style={{marginTop:16}}>Tight lines · dpchiasson.github.io/marsh-logbook</footer>
+      <datalist id="spotlist">{SPOTS.map(s=><option key={s.name} value={s.name}/>)}</datalist>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
