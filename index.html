@@ -187,7 +187,24 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);bo
   .fl-io-bar{padding:0 14px}
 }
 @media(min-width:760px){.fl-wide{grid-column:span 2}}
-  </style>
+  
+/* ── Toggle pair ── */
+.fl-toggle-pair{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.fl-tpbtn{font-family:'Space Mono',monospace;font-size:11px;padding:6px 12px;border:none;background:transparent;color:var(--ink-soft);cursor:pointer;transition:all .15s;white-space:nowrap}
+.fl-tpbtn:hover{background:var(--paper-2)}
+.fl-tpbtn.is-on{background:var(--pine);color:#fff;font-weight:700}
+.fl-chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:0}
+.fl-slot-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+/* ── Stop catch detail in logbook ── */
+.fl-catch-detail{display:flex;flex-direction:column;gap:6px;margin:8px 0 4px}
+.fl-catch-row-detail{display:flex;align-items:flex-start;gap:8px;font-size:13.5px}
+.fl-sp-name{font-family:'Fraunces',serif;font-weight:600;color:var(--pine);font-size:14px}
+.fl-kept-line{font-family:'Space Mono',monospace;font-size:11px;color:var(--teal-deep);margin-top:2px}
+.fl-throw-line{font-family:'Space Mono',monospace;font-size:11px;color:var(--ink-soft);margin-top:1px}
+.fl-catch-none{font-style:italic;color:var(--ink-soft);font-size:13px;padding:4px 0}
+/* ── Tide badge on stop ── */
+.fl-tide-badge{font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--teal);color:#fff;margin-left:6px}
+</style>
 </head>
 <body>
 <div id="root"><div style="text-align:center;padding:60px;font-family:Georgia,serif;color:#20342b">Loading Marsh Logbook…</div></div>
@@ -237,8 +254,31 @@ const fmtDate = (iso) => {
   return `${MONTHS_S[+m - 1]} ${+d}, ${y}`;
 };
 const emptyCatch = (sp = TROUT) => ({ id: uid(), species: sp, customSpecies: "", counts: {} });
-const emptyStop = () => ({ id: uid(), spot: "Leeville Bridge", lat: "29.246", lng: "-90.211", time: nowTime(), bait: "", catches: [emptyCatch(TROUT)], notes: "" });
-const emptyTrip = () => ({ id: null, date: todayISO(), notes: "", weather: "Partly Cloudy", airTemp: "", waterTemp: "", windSpeed: "", windDir: "SE", tide: "Incoming", moon: "Waxing Gibbous", pressure: "", clarity: "Green", stops: [emptyStop()] });
+const emptyStop = () => ({
+  id: uid(),
+  spot: "Leeville Bridge",
+  lat: "29.246",
+  lng: "-90.211",
+  time: nowTime(),
+  tide: "Incoming",
+  bait: "",
+  catches: [emptyCatch(TROUT)],
+  notes: ""
+});
+const emptyTrip = () => ({
+  id: null,
+  date: todayISO(),
+  notes: "",
+  weather: "Partly Cloudy",
+  airTemp: "",
+  waterTemp: "",
+  windSpeed: "",
+  windDir: "SE",
+  moon: "Waxing Gibbous",
+  pressure: "",
+  clarity: "Green",
+  stops: [emptyStop()]
+});
 const resolveSpecies = (c) => c.species === "__custom" ? c.customSpecies || "Custom" : c.species;
 const speciesColor = (n) => n === TROUT ? "var(--teal)" : n === REDFISH ? "var(--rust)" : "var(--brass)";
 const speciesHex = (n) => n === TROUT ? "#2f7d7a" : n === REDFISH ? "#a8432b" : "#b07a2e";
@@ -252,6 +292,7 @@ const catchKept = (c) => speciesFields(c.species).reduce((s, f) => {
   return s + (f.kept ? num((_a = c.counts) == null ? void 0 : _a[f.key]) : 0);
 }, 0);
 const stopFish = (st) => st.catches.reduce((s, c) => s + catchTotal(c), 0);
+const stopKept = (st) => st.catches.reduce((s, c) => s + catchKept(c), 0);
 const tripFish = (t) => t.stops.reduce((s, st) => s + stopFish(st), 0);
 const stopSummary = (st) => st.catches.filter((c) => catchTotal(c) > 0).map((c) => `${resolveSpecies(c)} ${catchTotal(c)}`).join(", ") || "no fish";
 const startOfWeek = (iso) => {
@@ -407,6 +448,7 @@ function LeafletCatchMap({ clusters, onSelect }) {
     var _a;
     (_a = layerRef.current) == null ? void 0 : _a.clearLayers();
     list.forEach((cl) => {
+      if (cl.count === 0) return;
       const r = Math.min(34, 10 + cl.count * 2.2), hex = speciesHex(cl.dominant);
       const html = `<div style="width:${r * 2}px;height:${r * 2}px;border-radius:50%;background:${hex};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:monospace;font-size:${r > 14 ? 13 : 11}px">${cl.count}</div>`;
       const icon = L.divIcon({ html, className: "", iconSize: [r * 2, r * 2], iconAnchor: [r, r] });
@@ -416,8 +458,9 @@ function LeafletCatchMap({ clusters, onSelect }) {
       mk.on("click", () => onSelect(cl));
       mk.addTo(layerRef.current);
     });
-    if (list.length > 0) {
-      const lats = list.map((c) => c.lat), lngs = list.map((c) => c.lng);
+    const visible = list.filter((c) => c.count > 0);
+    if (visible.length > 0) {
+      const lats = visible.map((c) => c.lat), lngs = visible.map((c) => c.lng);
       mapRef.current.fitBounds([[Math.min(...lats) - 0.02, Math.min(...lngs) - 0.02], [Math.max(...lats) + 0.02, Math.max(...lngs) + 0.02]], { maxZoom: 13 });
     }
   }, [onSelect]);
@@ -488,6 +531,26 @@ function Field({ label, children, wide }) {
 function Stat({ n, l }) {
   return /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-statcard" }, /* @__PURE__ */ React.createElement("div", { className: "fl-statnum" }, n), /* @__PURE__ */ React.createElement("div", { className: "fl-statlbl" }, l));
 }
+function TogglePair({ value, onChange, opts }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "fl-toggle-pair" }, opts.map(([k, lbl]) => /* @__PURE__ */ React.createElement("button", { key: k, className: "fl-tpbtn" + (value === k ? " is-on" : ""), onClick: () => onChange(k) }, lbl)));
+}
+function StopCatchDetail({ catches }) {
+  const visible = catches.filter((c) => catchTotal(c) > 0);
+  if (visible.length === 0) return /* @__PURE__ */ React.createElement("div", { className: "fl-catch-none" }, "no fish");
+  return /* @__PURE__ */ React.createElement("div", { className: "fl-catch-detail" }, visible.map((c) => {
+    const sp = resolveSpecies(c);
+    const fields = speciesFields(c.species);
+    const keptParts = fields.filter((f) => {
+      var _a;
+      return f.kept && num((_a = c.counts) == null ? void 0 : _a[f.key]) > 0;
+    }).map((f) => `${num(c.counts[f.key])} ${f.label}`);
+    const throwParts = fields.filter((f) => {
+      var _a;
+      return !f.kept && num((_a = c.counts) == null ? void 0 : _a[f.key]) > 0;
+    }).map((f) => `${num(c.counts[f.key])} ${f.label}`);
+    return /* @__PURE__ */ React.createElement("div", { key: c.id, className: "fl-catch-row-detail" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: speciesColor(sp), marginTop: 3 } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-sp-name" }, sp), keptParts.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "fl-kept-line" }, "\u2713 ", keptParts.join(" \xB7 ")), throwParts.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "fl-throw-line" }, "\u21A9 ", throwParts.join(" \xB7 "))));
+  }));
+}
 function App() {
   const [trips, setTrips] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -508,12 +571,13 @@ function App() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [ioMsg, setIoMsg] = useState(null);
+  const [chartMode, setChartMode] = useState("all");
+  const [statsMode, setStatsMode] = useState("all");
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && hash.includes("access_token")) {
       const params = new URLSearchParams(hash.slice(1));
-      const token = params.get("access_token");
-      const expIn = params.get("expires_in");
+      const token = params.get("access_token"), expIn = params.get("expires_in");
       if (token) {
         setGToken(token);
         storageSet("gTokenExpiry", String(Date.now() + (parseInt(expIn) || 3599) * 1e3));
@@ -559,26 +623,34 @@ function App() {
   };
   const KNOWN_FILE_ID = "1f8sa7TBMA21SO3bebWKZA_kpz1dmiz6l";
   const findFileId = async (token) => {
-    // 1. Try cached file ID from localStorage
     const cached = storageGet("gDriveFileId");
     if (cached) {
       try {
         const ck = await fetch(`https://www.googleapis.com/drive/v3/files/${cached}?fields=id,trashed`, { headers: { Authorization: `Bearer ${token}` } });
-        if (ck.ok) { const cf = await ck.json(); if (!cf.trashed) return cached; }
-      } catch(e) {}
-      storageSet("gDriveFileId","");
+        if (ck.ok) {
+          const cf = await ck.json();
+          if (!cf.trashed) return cached;
+        }
+      } catch (e) {
+      }
+      storageSet("gDriveFileId", "");
     }
-    // 2. Try known file ID directly
     try {
       const kk = await fetch(`https://www.googleapis.com/drive/v3/files/${KNOWN_FILE_ID}?fields=id,trashed`, { headers: { Authorization: `Bearer ${token}` } });
-      if (kk.ok) { const kf = await kk.json(); if (!kf.trashed) { storageSet("gDriveFileId", KNOWN_FILE_ID); return KNOWN_FILE_ID; } }
-    } catch(e) {}
-    // 3. Search by name
+      if (kk.ok) {
+        const kf = await kk.json();
+        if (!kf.trashed) {
+          storageSet("gDriveFileId", KNOWN_FILE_ID);
+          return KNOWN_FILE_ID;
+        }
+      }
+    } catch (e) {
+    }
     const q = encodeURIComponent("name = 'marsh-logbook.json' and trashed = false");
     const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } });
     if (!r.ok) throw new Error(`Drive search failed: ${r.status}`);
     const d = await r.json();
-    const id = (d.files && d.files[0] && d.files[0].id) || null;
+    const id = d.files && d.files[0] && d.files[0].id || null;
     if (id) storageSet("gDriveFileId", id);
     return id;
   };
@@ -590,10 +662,7 @@ function App() {
       const blob = new Blob([json], { type: "application/json" });
       const fileId = await findFileId(token);
       if (fileId) {
-        const r = await fetch(
-          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-          { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: blob }
-        );
+        const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: blob });
         if (!r.ok) throw new Error(`Update failed ${r.status}`);
         storageSet("gDriveFileId", fileId);
       } else {
@@ -601,11 +670,10 @@ function App() {
         const form = new FormData();
         form.append("metadata", meta);
         form.append("file", blob);
-        const r = await fetch(
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-          { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form }
-        );
+        const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
         if (!r.ok) throw new Error(`Create failed ${r.status}`);
+        const rd = await r.json();
+        if (rd.id) storageSet("gDriveFileId", rd.id);
       }
       setGdrive("idle");
       setIoMsg({ ok: true, text: "\u2713 Saved to Google Drive" });
@@ -633,8 +701,7 @@ function App() {
       if (!incoming) throw new Error("Unrecognized file format");
       const existingIds = new Set(trips.map((t) => t.id));
       const toAdd = incoming.filter((t) => !existingIds.has(t.id));
-      const merged = [...trips, ...toAdd].sort((a, b) => b.date.localeCompare(a.date));
-      persist(merged);
+      persist([...trips, ...toAdd].sort((a, b) => b.date.localeCompare(a.date)));
       setGdrive("idle");
       setIoMsg({ ok: true, text: `\u2713 Loaded \u2014 ${toAdd.length} new trip${toAdd.length !== 1 ? "s" : ""} added` });
       setTimeout(() => setIoMsg(null), 6e3);
@@ -652,8 +719,7 @@ function App() {
     try {
       const raw = importText.trim().replace(/```json/gi, "").replace(/```/g, "");
       const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
-      const json = s !== -1 && e > s ? raw.slice(s, e + 1) : raw;
-      const data = JSON.parse(json);
+      const data = JSON.parse(s !== -1 && e > s ? raw.slice(s, e + 1) : raw);
       const incoming = data.trips || (Array.isArray(data) ? data : null);
       if (!incoming) throw new Error("Unrecognized format");
       const existingIds = new Set(trips.map((t) => t.id));
@@ -685,8 +751,7 @@ function App() {
   const onDropPin = (sid, lat, lng) => patchStop(sid, { lat: lat.toFixed(4), lng: lng.toFixed(4) });
   const saveTrip = () => {
     const rec = { ...trip, id: trip.id || uid() };
-    const next = trip.id ? trips.map((t) => t.id === trip.id ? rec : t) : [rec, ...trips];
-    persist(next);
+    persist(trip.id ? trips.map((t) => t.id === trip.id ? rec : t) : [rec, ...trips]);
     setTrip(emptyTrip());
     setPickerStopId(null);
     setTab("list");
@@ -713,35 +778,41 @@ function App() {
       const lat = parseFloat(st.lat), lng = parseFloat(st.lng);
       if (isNaN(lat) || isNaN(lng)) return;
       const key = st.spot || `${lat.toFixed(3)},${lng.toFixed(3)}`;
-      if (!m[key]) m[key] = { key, name: st.spot || "Unnamed", lat, lng, count: 0, species: {} };
+      if (!m[key]) m[key] = { key, name: st.spot || "Unnamed", lat, lng, count: 0, keptCount: 0, species: {}, keptSpecies: {} };
       m[key].lat = lat;
       m[key].lng = lng;
       st.catches.forEach((c) => {
-        const tot = catchTotal(c);
+        const tot = catchTotal(c), kpt = catchKept(c);
         if (!tot) return;
         const sp = resolveSpecies(c);
         m[key].count += tot;
+        m[key].keptCount += kpt;
         m[key].species[sp] = (m[key].species[sp] || 0) + tot;
+        if (kpt > 0) m[key].keptSpecies[sp] = (m[key].keptSpecies[sp] || 0) + kpt;
       });
     }));
-    return Object.values(m).filter((c) => c.count > 0).map((cl) => {
-      const dom = Object.entries(cl.species).sort((a, b) => b[1] - a[1])[0];
-      return { ...cl, dominant: dom ? dom[0] : "" };
-    });
-  }, [filteredBase]);
+    return Object.values(m).map((cl) => {
+      const displayCount = chartMode === "legal" ? cl.keptCount : cl.count;
+      const displaySpecies = chartMode === "legal" ? cl.keptSpecies : cl.species;
+      const dom = Object.entries(displaySpecies).sort((a, b) => b[1] - a[1])[0];
+      return { ...cl, count: displayCount, species: displaySpecies, dominant: dom ? dom[0] : "" };
+    }).filter((cl) => cl.count > 0);
+  }, [filteredBase, chartMode]);
   const stats = useMemo(() => {
     let total = 0, kept = 0;
     const bySpecies = {}, bySpot = {}, byMonth = Array(12).fill(0), tide = {}, moon = {}, clar = {};
-    const troutTally = { keepers: 0, over20: 0, under: 0 }, redTally = { kept: 0, bull: 0, under: 0 };
+    const troutAll = { keepers: 0, over20: 0, under: 0 }, redAll = { kept: 0, bull: 0, under: 0 };
     filteredBase.forEach((t) => {
       const mo = num(t.date.slice(5, 7)) - 1, tf = tripFish(t);
       if (tf > 0) {
-        tide[t.tide] = (tide[t.tide] || 0) + tf;
         moon[t.moon] = (moon[t.moon] || 0) + tf;
         if (t.clarity) clar[t.clarity] = (clar[t.clarity] || 0) + tf;
       }
       t.stops.forEach((st) => {
         const sf = stopFish(st);
+        if (sf > 0 && st.tide) {
+          tide[st.tide] = (tide[st.tide] || 0) + sf;
+        }
         if (sf > 0) {
           bySpot[st.spot] = (bySpot[st.spot] || 0) + sf;
           if (mo >= 0) byMonth[mo] += sf;
@@ -755,27 +826,41 @@ function App() {
           bySpecies[sp] = (bySpecies[sp] || 0) + tot;
           if (c.species === TROUT) TROUT_FIELDS.forEach((f) => {
             var _a;
-            return troutTally[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
+            return troutAll[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
           });
           if (c.species === REDFISH) RED_FIELDS.forEach((f) => {
             var _a;
-            return redTally[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
+            return redAll[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
           });
         });
       });
     });
     const top1 = (o) => Object.entries(o).sort((a, b) => b[1] - a[1])[0];
-    return { total, kept, released: total - kept, bySpeciesArr: Object.entries(bySpecies).sort((a, b) => b[1] - a[1]), topSpots: Object.entries(bySpot).sort((a, b) => b[1] - a[1]).slice(0, 5), byMonth, maxMonth: Math.max(1, ...byMonth), hotTide: top1(tide), hotMoon: top1(moon), hotClar: top1(clar), troutTally, redTally, trips: filteredBase.length };
+    return {
+      total,
+      kept,
+      released: total - kept,
+      bySpeciesArr: Object.entries(bySpecies).sort((a, b) => b[1] - a[1]),
+      topSpots: Object.entries(bySpot).sort((a, b) => b[1] - a[1]).slice(0, 5),
+      byMonth,
+      maxMonth: Math.max(1, ...byMonth),
+      hotTide: top1(tide),
+      hotMoon: top1(moon),
+      hotClar: top1(clar),
+      troutAll,
+      redAll,
+      trips: filteredBase.length
+    };
   }, [filteredBase]);
   const TABS = [["log", "\u271A Log Trip"], ["list", "Logbook"], ["calendar", "Calendar"], ["map", "Chart"], ["stats", "Trends"]];
   const showFilter = ["list", "map", "stats"].includes(tab);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { className: "fl-head" }, /* @__PURE__ */ React.createElement("div", { className: "fl-head-rose", "aria-hidden": true }, "\u273A"), /* @__PURE__ */ React.createElement("div", { className: "fl-head-text" }, /* @__PURE__ */ React.createElement("div", { className: "fl-kicker" }, "Leeville \xB7 Louisiana \xB7 Barataria\u2013Timbalier Basin"), /* @__PURE__ */ React.createElement("h1", { className: "fl-title" }, "The Marsh Logbook"), /* @__PURE__ */ React.createElement("div", { className: "fl-sub" }, "Trips, stops & counts \u2014 specks, reds & whatever else bites")), /* @__PURE__ */ React.createElement("div", { className: "fl-head-stat" }, /* @__PURE__ */ React.createElement("div", { className: "fl-bignum" }, stats.total), /* @__PURE__ */ React.createElement("div", { className: "fl-biglabel" }, filterLabel(filter) ? "filtered" : "total", " fish"))), /* @__PURE__ */ React.createElement("nav", { className: "fl-tabs" }, TABS.map(([k, label]) => /* @__PURE__ */ React.createElement("button", { key: k, className: "fl-tab" + (tab === k ? " is-active" : ""), onClick: () => setTab(k) }, label))), /* @__PURE__ */ React.createElement("main", { className: "fl-main" }, !loaded && /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Loading your logbook\u2026"), loaded && showFilter && /* @__PURE__ */ React.createElement(FilterBar, { filter, setFilter, allSpots: allLoggedSpots }), loaded && tab === "log" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2" }, trip.id ? "Edit Trip" : "New Trip"), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Trip date" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: trip.date, onChange: (e) => setTF("date", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Trip notes", wide: true }, /* @__PURE__ */ React.createElement("input", { value: trip.notes, placeholder: "who, boat, overall day\u2026", onChange: (e) => setTF("notes", e.target.value) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Conditions ", /* @__PURE__ */ React.createElement("span", { className: "fl-subhead-note" }, "\u2014 for the whole trip")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Sky" }, /* @__PURE__ */ React.createElement("select", { value: trip.weather, onChange: (e) => setTF("weather", e.target.value) }, WEATHER.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Air \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.airTemp, onChange: (e) => setTF("airTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Water \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.waterTemp, onChange: (e) => setTF("waterTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind mph" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.windSpeed, onChange: (e) => setTF("windSpeed", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind dir" }, /* @__PURE__ */ React.createElement("select", { value: trip.windDir, onChange: (e) => setTF("windDir", e.target.value) }, WIND_DIRS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Tide" }, /* @__PURE__ */ React.createElement("select", { value: trip.tide, onChange: (e) => setTF("tide", e.target.value) }, TIDES.map((t) => /* @__PURE__ */ React.createElement("option", { key: t }, t)))), /* @__PURE__ */ React.createElement(Field, { label: "Moon" }, /* @__PURE__ */ React.createElement("select", { value: trip.moon, onChange: (e) => setTF("moon", e.target.value) }, MOONS.map((mn) => /* @__PURE__ */ React.createElement("option", { key: mn }, mn)))), /* @__PURE__ */ React.createElement(Field, { label: "Pressure" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", value: trip.pressure, placeholder: "30.05", onChange: (e) => setTF("pressure", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Clarity" }, /* @__PURE__ */ React.createElement("select", { value: trip.clarity, onChange: (e) => setTF("clarity", e.target.value) }, CLARITY.map((c) => /* @__PURE__ */ React.createElement("option", { key: c }, c)))))), trip.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-card fl-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-stop-head" }, /* @__PURE__ */ React.createElement("span", { className: "fl-stop-badge" }, "Stop ", i + 1), /* @__PURE__ */ React.createElement("span", { className: "fl-stop-fish" }, stopFish(st), " fish"), trip.stops.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", style: { marginLeft: "auto" }, onClick: () => removeStop(st.id) }, "remove stop")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Spot", wide: true }, /* @__PURE__ */ React.createElement("input", { list: "spotlist", value: st.spot, placeholder: "Pick or name a spot", onChange: (e) => onPickSpot(st.id, e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Time" }, /* @__PURE__ */ React.createElement("input", { type: "time", value: st.time, onChange: (e) => patchStop(st.id, { time: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Latitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lat, onChange: (e) => patchStop(st.id, { lat: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Longitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lng, onChange: (e) => patchStop(st.id, { lng: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Set location" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "fl-toggle" + (pickerStopId === st.id ? " is-on" : ""), onClick: () => setPickerStopId(pickerStopId === st.id ? null : st.id) }, pickerStopId === st.id ? "\u2713 Close map" : "\u{1F4CD} Drop pin on map"))), pickerStopId === st.id && /* @__PURE__ */ React.createElement("div", { className: "fl-pickwrap" }, /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Tap anywhere on the map to drop this stop's pin."), /* @__PURE__ */ React.createElement(LeafletPicker, { lat: parseFloat(st.lat), lng: parseFloat(st.lng), onPick: (lat, lng) => onDropPin(st.id, lat, lng) })), /* @__PURE__ */ React.createElement("div", { className: "fl-grid", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(Field, { label: "Bait / Lure", wide: true }, /* @__PURE__ */ React.createElement("input", { value: st.bait, placeholder: "Matrix Shad, live shrimp\u2026", onChange: (e) => patchStop(st.id, { bait: e.target.value }) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Catches at this stop"), st.catches.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "fl-catchrow", style: { borderLeftColor: speciesColor(resolveSpecies(c)) } }, /* @__PURE__ */ React.createElement("div", { className: "fl-catch-top" }, /* @__PURE__ */ React.createElement("select", { className: "fl-catch-sp", value: c.species, onChange: (e) => setCatchSpecies(st.id, c.id, e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Inshore" }, INSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("optgroup", { label: "Offshore" }, OFFSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("option", { value: "__custom" }, "\uFF0B Custom species\u2026")), st.catches.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => removeCatch(st.id, c.id) }, "\xD7")), c.species === "__custom" && /* @__PURE__ */ React.createElement("input", { className: "fl-custom", value: c.customSpecies, placeholder: "Type species name", onChange: (e) => patchCatch(st.id, c.id, { customSpecies: e.target.value }) }), /* @__PURE__ */ React.createElement("div", { className: "fl-counts" }, speciesFields(c.species).map((f) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { className: "fl-head" }, /* @__PURE__ */ React.createElement("div", { className: "fl-head-rose", "aria-hidden": true }, "\u273A"), /* @__PURE__ */ React.createElement("div", { className: "fl-head-text" }, /* @__PURE__ */ React.createElement("div", { className: "fl-kicker" }, "Leeville \xB7 Louisiana \xB7 Barataria\u2013Timbalier Basin"), /* @__PURE__ */ React.createElement("h1", { className: "fl-title" }, "The Marsh Logbook"), /* @__PURE__ */ React.createElement("div", { className: "fl-sub" }, "Trips, stops & counts \u2014 specks, reds & whatever else bites")), /* @__PURE__ */ React.createElement("div", { className: "fl-head-stat" }, /* @__PURE__ */ React.createElement("div", { className: "fl-bignum" }, stats.total), /* @__PURE__ */ React.createElement("div", { className: "fl-biglabel" }, filterLabel(filter) ? "filtered" : "total", " fish"))), /* @__PURE__ */ React.createElement("nav", { className: "fl-tabs" }, TABS.map(([k, label]) => /* @__PURE__ */ React.createElement("button", { key: k, className: "fl-tab" + (tab === k ? " is-active" : ""), onClick: () => setTab(k) }, label))), /* @__PURE__ */ React.createElement("main", { className: "fl-main" }, !loaded && /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Loading your logbook\u2026"), loaded && showFilter && /* @__PURE__ */ React.createElement(FilterBar, { filter, setFilter, allSpots: allLoggedSpots }), loaded && tab === "log" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2" }, trip.id ? "Edit Trip" : "New Trip"), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Trip date" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: trip.date, onChange: (e) => setTF("date", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Trip notes", wide: true }, /* @__PURE__ */ React.createElement("input", { value: trip.notes, placeholder: "who, boat, overall day\u2026", onChange: (e) => setTF("notes", e.target.value) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Conditions ", /* @__PURE__ */ React.createElement("span", { className: "fl-subhead-note" }, "\u2014 for the whole trip")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Sky" }, /* @__PURE__ */ React.createElement("select", { value: trip.weather, onChange: (e) => setTF("weather", e.target.value) }, WEATHER.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Air \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.airTemp, onChange: (e) => setTF("airTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Water \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.waterTemp, onChange: (e) => setTF("waterTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind mph" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.windSpeed, onChange: (e) => setTF("windSpeed", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind dir" }, /* @__PURE__ */ React.createElement("select", { value: trip.windDir, onChange: (e) => setTF("windDir", e.target.value) }, WIND_DIRS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Moon" }, /* @__PURE__ */ React.createElement("select", { value: trip.moon, onChange: (e) => setTF("moon", e.target.value) }, MOONS.map((mn) => /* @__PURE__ */ React.createElement("option", { key: mn }, mn)))), /* @__PURE__ */ React.createElement(Field, { label: "Pressure" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", value: trip.pressure, placeholder: "30.05", onChange: (e) => setTF("pressure", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Clarity" }, /* @__PURE__ */ React.createElement("select", { value: trip.clarity, onChange: (e) => setTF("clarity", e.target.value) }, CLARITY.map((c) => /* @__PURE__ */ React.createElement("option", { key: c }, c)))))), trip.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-card fl-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-stop-head" }, /* @__PURE__ */ React.createElement("span", { className: "fl-stop-badge" }, "Stop ", i + 1), /* @__PURE__ */ React.createElement("span", { className: "fl-stop-fish" }, stopFish(st), " fish \xB7 ", stopKept(st), " kept"), trip.stops.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", style: { marginLeft: "auto" }, onClick: () => removeStop(st.id) }, "remove stop")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Spot", wide: true }, /* @__PURE__ */ React.createElement("input", { list: "spotlist", value: st.spot, placeholder: "Pick or name a spot", onChange: (e) => onPickSpot(st.id, e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Time" }, /* @__PURE__ */ React.createElement("input", { type: "time", value: st.time, onChange: (e) => patchStop(st.id, { time: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Tide" }, /* @__PURE__ */ React.createElement("select", { value: st.tide || "Incoming", onChange: (e) => patchStop(st.id, { tide: e.target.value }) }, TIDES.map((t) => /* @__PURE__ */ React.createElement("option", { key: t }, t)))), /* @__PURE__ */ React.createElement(Field, { label: "Latitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lat, onChange: (e) => patchStop(st.id, { lat: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Longitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lng, onChange: (e) => patchStop(st.id, { lng: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Set location" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "fl-toggle" + (pickerStopId === st.id ? " is-on" : ""), onClick: () => setPickerStopId(pickerStopId === st.id ? null : st.id) }, pickerStopId === st.id ? "\u2713 Close map" : "\u{1F4CD} Drop pin on map"))), pickerStopId === st.id && /* @__PURE__ */ React.createElement("div", { className: "fl-pickwrap" }, /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Tap anywhere on the map to drop this stop's pin."), /* @__PURE__ */ React.createElement(LeafletPicker, { lat: parseFloat(st.lat), lng: parseFloat(st.lng), onPick: (lat, lng) => onDropPin(st.id, lat, lng) })), /* @__PURE__ */ React.createElement("div", { className: "fl-grid", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(Field, { label: "Bait / Lure", wide: true }, /* @__PURE__ */ React.createElement("input", { value: st.bait, placeholder: "Matrix Shad, live shrimp\u2026", onChange: (e) => patchStop(st.id, { bait: e.target.value }) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Catches at this stop"), st.catches.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "fl-catchrow", style: { borderLeftColor: speciesColor(resolveSpecies(c)) } }, /* @__PURE__ */ React.createElement("div", { className: "fl-catch-top" }, /* @__PURE__ */ React.createElement("select", { className: "fl-catch-sp", value: c.species, onChange: (e) => setCatchSpecies(st.id, c.id, e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Inshore" }, INSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("optgroup", { label: "Offshore" }, OFFSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("option", { value: "__custom" }, "\uFF0B Custom species\u2026")), st.catches.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => removeCatch(st.id, c.id) }, "\xD7")), c.species === "__custom" && /* @__PURE__ */ React.createElement("input", { className: "fl-custom", value: c.customSpecies, placeholder: "Type species name", onChange: (e) => patchCatch(st.id, c.id, { customSpecies: e.target.value }) }), /* @__PURE__ */ React.createElement("div", { className: "fl-counts" }, speciesFields(c.species).map((f) => {
     var _a, _b;
     return /* @__PURE__ */ React.createElement("label", { key: f.key, className: "fl-count" }, /* @__PURE__ */ React.createElement("span", { className: "fl-count-lbl" }, f.label), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", inputMode: "numeric", value: (_b = (_a = c.counts) == null ? void 0 : _a[f.key]) != null ? _b : "", placeholder: "0", onChange: (e) => setCatchCount(st.id, c.id, f.key, e.target.value) }));
   })), regHint(c.species) && /* @__PURE__ */ React.createElement("div", { className: "fl-reghint" }, "\u2696 ", regHint(c.species)))), /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-ghost", onClick: () => addCatch(st.id) }, "\uFF0B Add species"), /* @__PURE__ */ React.createElement(Field, { label: "Stop notes", wide: true }, /* @__PURE__ */ React.createElement("input", { value: st.notes, placeholder: "how it fished\u2026", onChange: (e) => patchStop(st.id, { notes: e.target.value }) })))), /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-add", onClick: addStop }, "\uFF0B Add another stop"), /* @__PURE__ */ React.createElement("div", { className: "fl-actions" }, /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-primary", onClick: saveTrip }, trip.id ? "Save Trip" : "Log Trip"), trip.id && /* @__PURE__ */ React.createElement("button", { className: "fl-btn", onClick: () => {
     setTrip(emptyTrip());
     setPickerStopId(null);
-  } }, "Cancel"))), loaded && tab === "list" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-controls" }, /* @__PURE__ */ React.createElement("input", { className: "fl-search", placeholder: "Search spot, species, bait, notes\u2026", value: search, onChange: (e) => setSearch(e.target.value) })), listTrips.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, filterLabel(filter) ? "No trips match this filter." : "No trips yet \u2014 head to Log Trip.") : listTrips.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, className: "fl-card fl-trip" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "fl-trip-date" }, t.date), /* @__PURE__ */ React.createElement("span", { className: "fl-trip-total" }, tripFish(t), " fish \xB7 ", t.stops.length, " stop", t.stops.length > 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-btns" }, /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => editTrip(t) }, "edit"), /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => delTrip(t.id) }, "\xD7"))), t.notes && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-notes" }, t.notes), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond" }, t.tide, " tide \xB7 ", t.moon, " moon \xB7 ", t.weather, t.waterTemp && ` \xB7 ${t.waterTemp}\xB0F water`, t.airTemp && ` \xB7 ${t.airTemp}\xB0F air`, t.windSpeed && ` \xB7 ${t.windSpeed}mph ${t.windDir}`, t.pressure && ` \xB7 ${t.pressure}inHg`, t.clarity && ` \xB7 ${t.clarity}`), t.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-trip-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-stop-head" }, /* @__PURE__ */ React.createElement("b", null, "Stop ", i + 1, ": ", st.spot), " ", /* @__PURE__ */ React.createElement("span", { className: "fl-mono" }, st.time)), /* @__PURE__ */ React.createElement("div", { className: "fl-catch-pills" }, st.catches.filter((c) => catchTotal(c) > 0).map((c) => /* @__PURE__ */ React.createElement("span", { key: c.id, className: "fl-pill", style: { background: speciesColor(resolveSpecies(c)) } }, resolveSpecies(c), " ", catchTotal(c))), stopFish(st) === 0 && /* @__PURE__ */ React.createElement("span", { className: "fl-pill fl-pill-zero" }, "no fish")), (st.bait || st.notes) && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond" }, st.bait, st.bait && st.notes ? " \xB7 " : "", st.notes)))))), loaded && tab === "calendar" && /* @__PURE__ */ React.createElement(
+  } }, "Cancel"))), loaded && tab === "list" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-controls" }, /* @__PURE__ */ React.createElement("input", { className: "fl-search", placeholder: "Search spot, species, bait, notes\u2026", value: search, onChange: (e) => setSearch(e.target.value) })), listTrips.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, filterLabel(filter) ? "No trips match this filter." : "No trips yet \u2014 head to Log Trip.") : listTrips.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, className: "fl-card fl-trip" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "fl-trip-date" }, t.date), /* @__PURE__ */ React.createElement("span", { className: "fl-trip-total" }, tripFish(t), " fish \xB7 ", t.stops.length, " stop", t.stops.length > 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-btns" }, /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => editTrip(t) }, "edit"), /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => delTrip(t.id) }, "\xD7"))), t.notes && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-notes" }, t.notes), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond" }, t.moon, " moon \xB7 ", t.weather, t.waterTemp && ` \xB7 ${t.waterTemp}\xB0F water`, t.airTemp && ` \xB7 ${t.airTemp}\xB0F air`, t.windSpeed && ` \xB7 ${t.windSpeed}mph ${t.windDir}`, t.pressure && ` \xB7 ${t.pressure}inHg`, t.clarity && ` \xB7 ${t.clarity}`), t.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-trip-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-stop-head" }, /* @__PURE__ */ React.createElement("b", null, "Stop ", i + 1, ": ", st.spot), /* @__PURE__ */ React.createElement("span", { className: "fl-mono" }, st.time), st.tide && /* @__PURE__ */ React.createElement("span", { className: "fl-tide-badge" }, st.tide)), /* @__PURE__ */ React.createElement(StopCatchDetail, { catches: st.catches }), (st.bait || st.notes) && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond", style: { marginTop: 4 } }, st.bait, st.bait && st.notes ? " \xB7 " : "", st.notes)))))), loaded && tab === "calendar" && /* @__PURE__ */ React.createElement(
     Calendar,
     {
       cursor,
@@ -786,10 +871,10 @@ function App() {
       onEdit: editTrip,
       onDel: delTrip
     }
-  ), loaded && tab === "map" && /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2" }, "Catch Chart ", filterLabel(filter) && /* @__PURE__ */ React.createElement("span", { className: "fl-filter-badge" }, "filtered")), /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Pins sized by fish landed, colored by top species. Pinch/scroll to zoom.\xA0", /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--teal)" } }), "Trout"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--rust)" } }), "Redfish"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--brass)" } }), "Other")), /* @__PURE__ */ React.createElement(LeafletCatchMap, { clusters, onSelect: setMapInfo }), mapInfo ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: speciesColor(mapInfo.dominant) } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, mapInfo.name), " \u2014 ", mapInfo.count, " fish", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, opacity: 0.85 } }, Object.entries(mapInfo.species).map(([s, n]) => `${s} (${n})`).join(" \xB7 ")))) : clusters.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo fl-mapinfo-hint" }, "Tap a pin to see the spot & catch breakdown.") : /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "No catches match this filter.")), loaded && tab === "stats" && /* @__PURE__ */ React.createElement("div", { className: "fl-statsgrid" }, filterLabel(filter) && /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-filter-label-row" }, "\u{1F4CA} Trends for: ", /* @__PURE__ */ React.createElement("b", null, filterLabel(filter))), /* @__PURE__ */ React.createElement(Stat, { n: stats.total, l: "total fish" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.kept, l: "kept" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.released, l: "released" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.trips, l: "trips" }), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "By species"), stats.bySpeciesArr.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.bySpeciesArr.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.bySpeciesArr[0][1] * 100}%`, background: speciesColor(s) } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Fish by month"), /* @__PURE__ */ React.createElement("div", { className: "fl-months" }, stats.byMonth.map((n, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "fl-month" }, /* @__PURE__ */ React.createElement("div", { className: "fl-month-num", style: { opacity: n > 0 ? 1 : 0 } }, n || ""), /* @__PURE__ */ React.createElement("div", { className: "fl-month-bar", style: { height: `${n / stats.maxMonth * 80 + 2}px` } }), /* @__PURE__ */ React.createElement("div", { className: "fl-month-lbl" }, MONTHS_S[i].slice(0, 1)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Slot tally"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--teal)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Speckled Trout")), /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Keepers 13\u201320": ', /* @__PURE__ */ React.createElement("b", null, stats.troutTally.keepers), ' \xB7 Over 20": ', /* @__PURE__ */ React.createElement("b", null, stats.troutTally.over20), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.troutTally.under)), /* @__PURE__ */ React.createElement("div", { className: "fl-pb", style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--rust)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Red Drum")), /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Kept 18\u201327": ', /* @__PURE__ */ React.createElement("b", null, stats.redTally.kept), " \xB7 Bulls: ", /* @__PURE__ */ React.createElement("b", null, stats.redTally.bull), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.redTally.under))), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Best bite conditions"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F30A} Tide: ", /* @__PURE__ */ React.createElement("b", null, stats.hotTide ? `${stats.hotTide[0]} (${stats.hotTide[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F319} Moon: ", /* @__PURE__ */ React.createElement("b", null, stats.hotMoon ? `${stats.hotMoon[0]} (${stats.hotMoon[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F4A7} Water: ", /* @__PURE__ */ React.createElement("b", null, stats.hotClar ? `${stats.hotClar[0]} (${stats.hotClar[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Weighted by fish landed.")), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Top spots"), stats.topSpots.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.topSpots.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.topSpots[0][1] * 100}%`, background: "var(--teal-deep)" } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-bar" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-inner" }, /* @__PURE__ */ React.createElement("span", { className: "fl-io-label" }, "\u2601 Google Drive"), gUser && /* @__PURE__ */ React.createElement("span", { className: "fl-io-who" }, "\u2713 ", gUser), !gToken && !gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: signInGoogle }, "\u{1F511} Sign in with Google"), (gToken || gUser) && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: saveToGDrive, disabled: gdrive !== "idle" }, gdrive === "saving" ? "\u23F3 Saving\u2026" : "\u2B06 Save to Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: loadFromGDrive, disabled: gdrive !== "idle" }, gdrive === "loading" ? "\u23F3 Loading\u2026" : "\u2B07 Load from Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-out", onClick: signOutGoogle }, "Sign out")), !gToken && gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: signInGoogle }, "\u{1F504} Refresh sign-in"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-paste", onClick: () => setShowImport((v) => !v) }, "\u{1F4CB} Paste"), ioMsg && /* @__PURE__ */ React.createElement("span", { className: "fl-io-msg" + (ioMsg.ok ? " fl-io-ok" : " fl-io-err") }, ioMsg.text)), showImport && /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-title" }, "Paste your logbook JSON below, then tap Import"), /* @__PURE__ */ React.createElement("textarea", { className: "fl-io-ta", value: importText, placeholder: "Paste logbook JSON here\u2026", onChange: (e) => setImportText(e.target.value) }), /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-actions" }, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: importFromText, disabled: !importText.trim() }, "Import"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: () => {
+  ), loaded && tab === "map" && /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("div", { className: "fl-chart-head" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2", style: { margin: 0 } }, "Catch Chart"), /* @__PURE__ */ React.createElement(TogglePair, { value: chartMode, onChange: setChartMode, opts: [["all", "All fish"], ["legal", "Legal only"]] })), /* @__PURE__ */ React.createElement("p", { className: "fl-note", style: { marginTop: 10 } }, "Pins sized by ", chartMode === "legal" ? "legal fish only" : "all fish caught", ". Pinch/scroll to zoom.\xA0", /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--teal)" } }), "Trout"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--rust)" } }), "Redfish"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--brass)" } }), "Other")), /* @__PURE__ */ React.createElement(LeafletCatchMap, { clusters, onSelect: setMapInfo }), mapInfo ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: speciesColor(mapInfo.dominant) } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, mapInfo.name), " \u2014 ", mapInfo.count, " ", chartMode === "legal" ? "legal " : "", "fish", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, opacity: 0.85 } }, Object.entries(mapInfo.species).map(([s, n]) => `${s} (${n})`).join(" \xB7 ")))) : clusters.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo fl-mapinfo-hint" }, "Tap a pin to see the spot & catch breakdown.") : /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "No catches match this filter.")), loaded && tab === "stats" && /* @__PURE__ */ React.createElement("div", { className: "fl-statsgrid" }, filterLabel(filter) && /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-filter-label-row" }, "\u{1F4CA} Trends for: ", /* @__PURE__ */ React.createElement("b", null, filterLabel(filter))), /* @__PURE__ */ React.createElement(Stat, { n: stats.total, l: "total fish" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.kept, l: "kept" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.released, l: "released" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.trips, l: "trips" }), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "By species"), stats.bySpeciesArr.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.bySpeciesArr.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.bySpeciesArr[0][1] * 100}%`, background: speciesColor(s) } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Fish by month"), /* @__PURE__ */ React.createElement("div", { className: "fl-months" }, stats.byMonth.map((n, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "fl-month" }, /* @__PURE__ */ React.createElement("div", { className: "fl-month-num", style: { opacity: n > 0 ? 1 : 0 } }, n || ""), /* @__PURE__ */ React.createElement("div", { className: "fl-month-bar", style: { height: `${n / stats.maxMonth * 80 + 2}px` } }), /* @__PURE__ */ React.createElement("div", { className: "fl-month-lbl" }, MONTHS_S[i].slice(0, 1)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("div", { className: "fl-slot-head" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3", style: { margin: 0 } }, "Slot tally"), /* @__PURE__ */ React.createElement(TogglePair, { value: statsMode, onChange: setStatsMode, opts: [["all", "All"], ["legal", "Legal"]] })), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--teal)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Speckled Trout")), statsMode === "all" ? /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Keepers 13\u201320": ', /* @__PURE__ */ React.createElement("b", null, stats.troutAll.keepers), ' \xB7 Over 20": ', /* @__PURE__ */ React.createElement("b", null, stats.troutAll.over20), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.troutAll.under)) : /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, "Legal kept: ", /* @__PURE__ */ React.createElement("b", null, stats.troutAll.keepers + stats.troutAll.over20), " of 15 limit"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb", style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--rust)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Red Drum")), statsMode === "all" ? /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Kept 18\u201327": ', /* @__PURE__ */ React.createElement("b", null, stats.redAll.kept), " \xB7 Bulls: ", /* @__PURE__ */ React.createElement("b", null, stats.redAll.bull), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.redAll.under)) : /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, "Legal kept: ", /* @__PURE__ */ React.createElement("b", null, stats.redAll.kept), " of 4 limit")), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Best bite conditions"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F30A} Tide: ", /* @__PURE__ */ React.createElement("b", null, stats.hotTide ? `${stats.hotTide[0]} (${stats.hotTide[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F319} Moon: ", /* @__PURE__ */ React.createElement("b", null, stats.hotMoon ? `${stats.hotMoon[0]} (${stats.hotMoon[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F4A7} Water: ", /* @__PURE__ */ React.createElement("b", null, stats.hotClar ? `${stats.hotClar[0]} (${stats.hotClar[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Weighted by fish landed.")), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Top spots"), stats.topSpots.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.topSpots.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.topSpots[0][1] * 100}%`, background: "var(--teal-deep)" } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-bar" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-inner" }, /* @__PURE__ */ React.createElement("span", { className: "fl-io-label" }, "\u2601 Google Drive"), gUser && /* @__PURE__ */ React.createElement("span", { className: "fl-io-who" }, "\u2713 ", gUser), !gToken && !gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: signInGoogle }, "\u{1F511} Sign in with Google"), (gToken || gUser) && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: saveToGDrive, disabled: gdrive !== "idle" }, gdrive === "saving" ? "\u23F3 Saving\u2026" : "\u2B06 Save to Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: loadFromGDrive, disabled: gdrive !== "idle" }, gdrive === "loading" ? "\u23F3 Loading\u2026" : "\u2B07 Load from Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-out", onClick: signOutGoogle }, "Sign out")), !gToken && gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: signInGoogle }, "\u{1F504} Refresh"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-paste", onClick: () => setShowImport((v) => !v) }, "\u{1F4CB} Paste"), ioMsg && /* @__PURE__ */ React.createElement("span", { className: "fl-io-msg" + (ioMsg.ok ? " fl-io-ok" : " fl-io-err") }, ioMsg.text)), showImport && /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-title" }, "Paste your logbook JSON below, then tap Import"), /* @__PURE__ */ React.createElement("textarea", { className: "fl-io-ta", value: importText, placeholder: "Paste logbook JSON here\u2026", onChange: (e) => setImportText(e.target.value) }), /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-actions" }, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: importFromText, disabled: !importText.trim() }, "Import"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: () => {
     setShowImport(false);
     setImportText("");
-  } }, "Cancel"))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-hint" }, gToken ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Signed in \xB7 saves as ", /* @__PURE__ */ React.createElement("b", null, "marsh-logbook.json"), " in your Google Drive \xB7 sync between any device") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Sign in with Google to save & sync your logbook between your Surface and iPhone"))), /* @__PURE__ */ React.createElement("footer", { className: "fl-foot", style: { marginTop: 16 } }, "Tight lines \xB7 dpchiasson.github.io/marsh-logbook"), /* @__PURE__ */ React.createElement("datalist", { id: "spotlist" }, SPOTS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.name, value: s.name }))));
+  } }, "Cancel"))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-hint" }, gToken ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Signed in \xB7 saves as ", /* @__PURE__ */ React.createElement("b", null, "marsh-logbook.json"), " \xB7 sync between any device") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Sign in with Google to save & sync your logbook"))), /* @__PURE__ */ React.createElement("footer", { className: "fl-foot", style: { marginTop: 16 } }, "Tight lines \xB7 dpchiasson.github.io/marsh-logbook"), /* @__PURE__ */ React.createElement("datalist", { id: "spotlist" }, SPOTS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.name, value: s.name }))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
 
