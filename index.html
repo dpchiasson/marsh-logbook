@@ -227,7 +227,7 @@ const DEFAULT_FIELDS = [{ key: "kept", label: "Kept", kept: true }, { key: "rele
 const speciesFields = (n) => n === TROUT ? TROUT_FIELDS : n === REDFISH ? RED_FIELDS : DEFAULT_FIELDS;
 const regHint = (n) => n === TROUT ? 'LA limit: 13\u201320" slot \xB7 15/day \xB7 only 2 over 20"' : n === REDFISH ? 'LA limit: 18\u201327" slot \xB7 4/day \xB7 no bulls over 27"' : null;
 const GCLIENT_ID = "888891365042-6i7g8ic8vs2i9dcc673jvb0j3pm1ilml.apps.googleusercontent.com";
-const GSCOPE = "https://www.googleapis.com/auth/drive.file";
+const GSCOPE = "https://www.googleapis.com/auth/drive";
 const todayISO = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 const nowTime = () => (/* @__PURE__ */ new Date()).toTimeString().slice(0, 5);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
