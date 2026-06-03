@@ -195,737 +195,585 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);bo
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.4/babel.min.js"></script>
-<script async defer src="https://accounts.google.com/gsi/client"></script>
 
-<script type="text/babel" data-presets="react">
+<script>
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
-
-// ── Reference data ─────────────────────────────────────────────────────────
-const INSHORE = ["Speckled Trout","Red Drum (Redfish)","Black Drum","Southern Flounder","Sheepshead","White Trout","Sand Trout","Croaker","Tripletail","Jack Crevalle","Ladyfish","Bluefish","Spanish Mackerel","Gafftopsail Catfish","Hardhead Catfish","Largemouth Bass","Striped Bass","Spotted Gar","Mangrove Snapper"];
-const OFFSHORE = ["Red Snapper","Lane Snapper","Vermilion Snapper (Beeliner)","Yellowfin Tuna","Blackfin Tuna","Mahi-Mahi","Wahoo","King Mackerel","Cobia (Ling)","Greater Amberjack","Grouper","Triggerfish","Tarpon","Blue Marlin","White Marlin","Sailfish","Bull Red (offshore)"];
+const INSHORE = ["Speckled Trout", "Red Drum (Redfish)", "Black Drum", "Southern Flounder", "Sheepshead", "White Trout", "Sand Trout", "Croaker", "Tripletail", "Jack Crevalle", "Ladyfish", "Bluefish", "Spanish Mackerel", "Gafftopsail Catfish", "Hardhead Catfish", "Largemouth Bass", "Striped Bass", "Spotted Gar", "Mangrove Snapper"];
+const OFFSHORE = ["Red Snapper", "Lane Snapper", "Vermilion Snapper (Beeliner)", "Yellowfin Tuna", "Blackfin Tuna", "Mahi-Mahi", "Wahoo", "King Mackerel", "Cobia (Ling)", "Greater Amberjack", "Grouper", "Triggerfish", "Tarpon", "Blue Marlin", "White Marlin", "Sailfish", "Bull Red (offshore)"];
 const SPOTS = [
-  {name:"Leeville Bridge",lat:29.246,lng:-90.211},{name:"Bay Tambour",lat:29.27,lng:-90.30},
-  {name:"Timbalier Bay",lat:29.12,lng:-90.42},{name:"Caminada Bay",lat:29.20,lng:-90.05},
-  {name:"Little Lake",lat:29.45,lng:-90.18},{name:"Golden Meadow Canals",lat:29.38,lng:-90.26},
-  {name:"Catfish Lake",lat:29.33,lng:-90.31},{name:"Belle Pass",lat:29.10,lng:-90.22},
-  {name:"Fourchon Marsh",lat:29.13,lng:-90.19},{name:"Wisner Area",lat:29.30,lng:-90.13},
+  { name: "Leeville Bridge", lat: 29.246, lng: -90.211 },
+  { name: "Bay Tambour", lat: 29.27, lng: -90.3 },
+  { name: "Timbalier Bay", lat: 29.12, lng: -90.42 },
+  { name: "Caminada Bay", lat: 29.2, lng: -90.05 },
+  { name: "Little Lake", lat: 29.45, lng: -90.18 },
+  { name: "Golden Meadow Canals", lat: 29.38, lng: -90.26 },
+  { name: "Catfish Lake", lat: 29.33, lng: -90.31 },
+  { name: "Belle Pass", lat: 29.1, lng: -90.22 },
+  { name: "Fourchon Marsh", lat: 29.13, lng: -90.19 },
+  { name: "Wisner Area", lat: 29.3, lng: -90.13 }
 ];
-const WEATHER=["Sunny","Partly Cloudy","Cloudy","Overcast","Rain","Fog","Windy"];
-const WIND_DIRS=["N","NE","E","SE","S","SW","W","NW"];
-const TIDES=["Incoming","High Slack","Outgoing","Low Slack","Rising","Falling"];
-const MOONS=["New","Waxing Crescent","First Quarter","Waxing Gibbous","Full","Waning Gibbous","Last Quarter","Waning Crescent"];
-const CLARITY=["Clear","Green","Trout Green","Stained","Muddy / Chocolate"];
-const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const MONTHS_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const TROUT="Speckled Trout", REDFISH="Red Drum (Redfish)";
-const TROUT_FIELDS=[{key:"keepers",label:'Keepers 13–20"',kept:true},{key:"over20",label:'Over 20" (max 2)',kept:true},{key:"under",label:'Throwbacks <13"',kept:false}];
-const RED_FIELDS=[{key:"kept",label:'Kept 18–27"',kept:true},{key:"bull",label:'Bull >27" (rel.)',kept:false},{key:"under",label:'Throwbacks <18"',kept:false}];
-const DEFAULT_FIELDS=[{key:"kept",label:"Kept",kept:true},{key:"released",label:"Released",kept:false}];
-const speciesFields=n=>n===TROUT?TROUT_FIELDS:n===REDFISH?RED_FIELDS:DEFAULT_FIELDS;
-const regHint=n=>n===TROUT?'LA limit: 13–20" slot · 15/day · only 2 over 20"':n===REDFISH?'LA limit: 18–27" slot · 4/day · no bulls over 27"':null;
-const GCLIENT_ID="888891365042-6i7g8ic8vs2i9dcc673jvb0j3pm1ilml.apps.googleusercontent.com";
-const GSCOPE="https://www.googleapis.com/auth/drive.file";
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-const todayISO=()=>new Date().toISOString().slice(0,10);
-const nowTime=()=>new Date().toTimeString().slice(0,5);
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const fmtDate=iso=>{if(!iso)return"";const[y,m,d]=iso.split("-");return`${MONTHS_S[+m-1]} ${+d}, ${y}`;};
-const emptyCatch=(sp=TROUT)=>({id:uid(),species:sp,customSpecies:"",counts:{}});
-const emptyStop=()=>({id:uid(),spot:"Leeville Bridge",lat:"29.246",lng:"-90.211",time:nowTime(),bait:"",catches:[emptyCatch(TROUT)],notes:""});
-const emptyTrip=()=>({id:null,date:todayISO(),notes:"",weather:"Partly Cloudy",airTemp:"",waterTemp:"",windSpeed:"",windDir:"SE",tide:"Incoming",moon:"Waxing Gibbous",pressure:"",clarity:"Green",stops:[emptyStop()]});
-const resolveSpecies=c=>c.species==="__custom"?(c.customSpecies||"Custom"):c.species;
-const speciesColor=n=>n===TROUT?"var(--teal)":n===REDFISH?"var(--rust)":"var(--brass)";
-const speciesHex=n=>n===TROUT?"#2f7d7a":n===REDFISH?"#a8432b":"#b07a2e";
-const num=v=>parseInt(v)||0;
-const catchTotal=c=>speciesFields(c.species).reduce((s,f)=>s+num(c.counts?.[f.key]),0);
-const catchKept=c=>speciesFields(c.species).reduce((s,f)=>s+(f.kept?num(c.counts?.[f.key]):0),0);
-const stopFish=st=>st.catches.reduce((s,c)=>s+catchTotal(c),0);
-const tripFish=t=>t.stops.reduce((s,st)=>s+stopFish(st),0);
-const stopSummary=st=>st.catches.filter(c=>catchTotal(c)>0).map(c=>`${resolveSpecies(c)} ${catchTotal(c)}`).join(", ")||"no fish";
-
-// ── Filter helpers ──────────────────────────────────────────────────────────
-const startOfWeek=iso=>{const d=new Date(iso+"T00:00");d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);};
-const endOfWeek=iso=>{const d=new Date(iso+"T00:00");d.setDate(d.getDate()+(6-d.getDay()));return d.toISOString().slice(0,10);};
-const startOfMonth=iso=>iso.slice(0,7)+"-01";
-const endOfMonth=iso=>{const[y,m]=iso.split("-");return new Date(+y,+m,0).toISOString().slice(0,10);};
-const applyFilter=(trips,filter)=>{
-  let arr=trips;
-  if(filter.from) arr=arr.filter(t=>t.date>=filter.from);
-  if(filter.to)   arr=arr.filter(t=>t.date<=filter.to);
-  if(filter.spot&&filter.spot!=="all") arr=arr.filter(t=>t.stops.some(st=>st.spot===filter.spot));
+const WEATHER = ["Sunny", "Partly Cloudy", "Cloudy", "Overcast", "Rain", "Fog", "Windy"];
+const WIND_DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const TIDES = ["Incoming", "High Slack", "Outgoing", "Low Slack", "Rising", "Falling"];
+const MOONS = ["New", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full", "Waning Gibbous", "Last Quarter", "Waning Crescent"];
+const CLARITY = ["Clear", "Green", "Trout Green", "Stained", "Muddy / Chocolate"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS_S = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const TROUT = "Speckled Trout", REDFISH = "Red Drum (Redfish)";
+const TROUT_FIELDS = [{ key: "keepers", label: 'Keepers 13\u201320"', kept: true }, { key: "over20", label: 'Over 20" (max 2)', kept: true }, { key: "under", label: 'Throwbacks <13"', kept: false }];
+const RED_FIELDS = [{ key: "kept", label: 'Kept 18\u201327"', kept: true }, { key: "bull", label: 'Bull >27" (rel.)', kept: false }, { key: "under", label: 'Throwbacks <18"', kept: false }];
+const DEFAULT_FIELDS = [{ key: "kept", label: "Kept", kept: true }, { key: "released", label: "Released", kept: false }];
+const speciesFields = (n) => n === TROUT ? TROUT_FIELDS : n === REDFISH ? RED_FIELDS : DEFAULT_FIELDS;
+const regHint = (n) => n === TROUT ? 'LA limit: 13\u201320" slot \xB7 15/day \xB7 only 2 over 20"' : n === REDFISH ? 'LA limit: 18\u201327" slot \xB7 4/day \xB7 no bulls over 27"' : null;
+const GCLIENT_ID = "888891365042-6i7g8ic8vs2i9dcc673jvb0j3pm1ilml.apps.googleusercontent.com";
+const GSCOPE = "https://www.googleapis.com/auth/drive.file";
+const todayISO = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+const nowTime = () => (/* @__PURE__ */ new Date()).toTimeString().slice(0, 5);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmtDate = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${MONTHS_S[+m - 1]} ${+d}, ${y}`;
+};
+const emptyCatch = (sp = TROUT) => ({ id: uid(), species: sp, customSpecies: "", counts: {} });
+const emptyStop = () => ({ id: uid(), spot: "Leeville Bridge", lat: "29.246", lng: "-90.211", time: nowTime(), bait: "", catches: [emptyCatch(TROUT)], notes: "" });
+const emptyTrip = () => ({ id: null, date: todayISO(), notes: "", weather: "Partly Cloudy", airTemp: "", waterTemp: "", windSpeed: "", windDir: "SE", tide: "Incoming", moon: "Waxing Gibbous", pressure: "", clarity: "Green", stops: [emptyStop()] });
+const resolveSpecies = (c) => c.species === "__custom" ? c.customSpecies || "Custom" : c.species;
+const speciesColor = (n) => n === TROUT ? "var(--teal)" : n === REDFISH ? "var(--rust)" : "var(--brass)";
+const speciesHex = (n) => n === TROUT ? "#2f7d7a" : n === REDFISH ? "#a8432b" : "#b07a2e";
+const num = (v) => parseInt(v) || 0;
+const catchTotal = (c) => speciesFields(c.species).reduce((s, f) => {
+  var _a;
+  return s + num((_a = c.counts) == null ? void 0 : _a[f.key]);
+}, 0);
+const catchKept = (c) => speciesFields(c.species).reduce((s, f) => {
+  var _a;
+  return s + (f.kept ? num((_a = c.counts) == null ? void 0 : _a[f.key]) : 0);
+}, 0);
+const stopFish = (st) => st.catches.reduce((s, c) => s + catchTotal(c), 0);
+const tripFish = (t) => t.stops.reduce((s, st) => s + stopFish(st), 0);
+const stopSummary = (st) => st.catches.filter((c) => catchTotal(c) > 0).map((c) => `${resolveSpecies(c)} ${catchTotal(c)}`).join(", ") || "no fish";
+const startOfWeek = (iso) => {
+  const d = /* @__PURE__ */ new Date(iso + "T00:00");
+  d.setDate(d.getDate() - d.getDay());
+  return d.toISOString().slice(0, 10);
+};
+const endOfWeek = (iso) => {
+  const d = /* @__PURE__ */ new Date(iso + "T00:00");
+  d.setDate(d.getDate() + (6 - d.getDay()));
+  return d.toISOString().slice(0, 10);
+};
+const startOfMonth = (iso) => iso.slice(0, 7) + "-01";
+const endOfMonth = (iso) => {
+  const [y, m] = iso.split("-");
+  return new Date(+y, +m, 0).toISOString().slice(0, 10);
+};
+const applyFilter = (trips, filter) => {
+  let arr = trips;
+  if (filter.from) arr = arr.filter((t) => t.date >= filter.from);
+  if (filter.to) arr = arr.filter((t) => t.date <= filter.to);
+  if (filter.spot && filter.spot !== "all") arr = arr.filter((t) => t.stops.some((st) => st.spot === filter.spot));
   return arr;
 };
-const filterLabel=f=>{
-  if(!f.from&&!f.to&&(!f.spot||f.spot==="all"))return null;
-  const p=[];
-  if(f.from&&f.to&&f.from===f.to)p.push(fmtDate(f.from));
-  else if(f.from||f.to)p.push(`${f.from?fmtDate(f.from):"start"} → ${f.to?fmtDate(f.to):"today"}`);
-  if(f.spot&&f.spot!=="all")p.push(f.spot);
-  return p.join("  ·  ");
+const filterLabel = (f) => {
+  if (!f.from && !f.to && (!f.spot || f.spot === "all")) return null;
+  const p = [];
+  if (f.from && f.to && f.from === f.to) p.push(fmtDate(f.from));
+  else if (f.from || f.to) p.push(`${f.from ? fmtDate(f.from) : "start"} \u2192 ${f.to ? fmtDate(f.to) : "today"}`);
+  if (f.spot && f.spot !== "all") p.push(f.spot);
+  return p.join("  \xB7  ");
 };
-
-// ── Storage (localStorage) ─────────────────────────────────────────────────
-const storageGet=key=>{try{return localStorage.getItem(key);}catch(e){return null;}};
-const storageSet=(key,val)=>{try{localStorage.setItem(key,val);}catch(e){console.error(e);}};
-
-// ── FilterBar ──────────────────────────────────────────────────────────────
-function FilterBar({filter,setFilter,allSpots}){
-  const [showCal,setShowCal]=useState(false);
-  const [calCursor,setCalCursor]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
-  const [picking,setPicking]=useState(null);
-  const today=todayISO();
-  const lws=()=>{const d=new Date(today+"T00:00");d.setDate(d.getDate()-d.getDay()-7);return d.toISOString().slice(0,10);};
-  const lwe=()=>{const d=new Date(today+"T00:00");d.setDate(d.getDate()-d.getDay()-1);return d.toISOString().slice(0,10);};
-  const lms=()=>{const[y,m]=today.split("-");return new Date(+y,+m-2,1).toISOString().slice(0,10);};
-  const lme=()=>{const[y,m]=today.split("-");return new Date(+y,+m-1,0).toISOString().slice(0,10);};
-  const setQuick=mode=>{
-    setShowCal(false);setPicking(null);
-    if(mode==="today"){setFilter(f=>({...f,from:today,to:today}));return;}
-    if(mode==="week"){setFilter(f=>({...f,from:startOfWeek(today),to:endOfWeek(today)}));return;}
-    if(mode==="lastweek"){setFilter(f=>({...f,from:lws(),to:lwe()}));return;}
-    if(mode==="month"){setFilter(f=>({...f,from:startOfMonth(today),to:endOfMonth(today)}));return;}
-    if(mode==="lastmonth"){setFilter(f=>({...f,from:lms(),to:lme()}));return;}
-    if(mode==="year"){setFilter(f=>({...f,from:today.slice(0,4)+"-01-01",to:today.slice(0,4)+"-12-31"}));return;}
-    if(mode==="all"){setFilter(f=>({...f,from:"",to:""}));return;}
+const storageGet = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    return null;
+  }
+};
+const storageSet = (key, val) => {
+  try {
+    localStorage.setItem(key, val);
+  } catch (e) {
+    console.error(e);
+  }
+};
+function FilterBar({ filter, setFilter, allSpots }) {
+  const [showCal, setShowCal] = useState(false);
+  const [calCursor, setCalCursor] = useState(() => {
+    const d = /* @__PURE__ */ new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  const [picking, setPicking] = useState(null);
+  const today = todayISO();
+  const lws = () => {
+    const d = /* @__PURE__ */ new Date(today + "T00:00");
+    d.setDate(d.getDate() - d.getDay() - 7);
+    return d.toISOString().slice(0, 10);
   };
-  const aq=()=>{
-    if(!filter.from&&!filter.to)return"all";
-    if(filter.from===today&&filter.to===today)return"today";
-    if(filter.from===startOfWeek(today)&&filter.to===endOfWeek(today))return"week";
-    if(filter.from===lws()&&filter.to===lwe())return"lastweek";
-    if(filter.from===startOfMonth(today)&&filter.to===endOfMonth(today))return"month";
-    if(filter.from===lms()&&filter.to===lme())return"lastmonth";
-    if(filter.from===today.slice(0,4)+"-01-01"&&filter.to===today.slice(0,4)+"-12-31")return"year";
-    return"custom";
+  const lwe = () => {
+    const d = /* @__PURE__ */ new Date(today + "T00:00");
+    d.setDate(d.getDate() - d.getDay() - 1);
+    return d.toISOString().slice(0, 10);
   };
-  const onCalDay=iso=>{
-    if(!picking||picking==="from"){setFilter(f=>({...f,from:iso,to:iso}));setPicking("to");}
-    else{const[a,b]=iso<filter.from?[iso,filter.from]:[filter.from,iso];setFilter(f=>({...f,from:a,to:b}));setPicking(null);setShowCal(false);}
+  const lms = () => {
+    const [y2, m2] = today.split("-");
+    return new Date(+y2, +m2 - 2, 1).toISOString().slice(0, 10);
   };
-  const clear=()=>{setFilter({from:"",to:"",spot:"all"});setShowCal(false);setPicking(null);};
-  const label=filterLabel(filter);
-  const{y,m}=calCursor;
-  const firstDow=new Date(y,m,1).getDay(),daysInMonth=new Date(y,m+1,0).getDate();
-  const cells=[];for(let i=0;i<firstDow;i++)cells.push(null);
-  for(let d=1;d<=daysInMonth;d++)cells.push(`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
-  return(
-    <div className="fl-filterbar">
-      <div className="fl-filter-modes">
-        {[["all","All Time"],["today","Today"],["week","This Week"],["lastweek","Last Week"],["month","This Month"],["lastmonth","Last Month"],["year","This Year"],["custom","Custom Range"]].map(([k,lbl])=>(
-          <button key={k} className={"fl-fmode"+(aq()===k?" is-active":"")} onClick={()=>k==="custom"?setShowCal(v=>!v):setQuick(k)}>{lbl}</button>
-        ))}
-      </div>
-      <div className="fl-filter-row2">
-        <select className="fl-filter-loc" value={filter.spot||"all"} onChange={e=>setFilter(f=>({...f,spot:e.target.value}))}>
-          <option value="all">All locations</option>
-          {allSpots.map(s=><option key={s}>{s}</option>)}
-        </select>
-        {label&&<button className="fl-fclear" onClick={clear}>✕ Clear filter</button>}
-      </div>
-      {label&&<div className="fl-filter-active">Showing: <b>{label}</b></div>}
-      {showCal&&(
-        <div className="fl-filter-cal-wrap">
-          <div className="fl-frange-hint">{!picking||picking==="from"?"Tap a start date":`Start: ${fmtDate(filter.from)} — now tap an end date`}</div>
-          <div className="fl-fcal">
-            <div className="fl-fcal-head">
-              <button className="fl-mini" style={{background:"rgba(255,255,255,.12)",borderColor:"rgba(255,255,255,.2)",color:"#fff"}} onClick={()=>setCalCursor(c=>c.m===0?{y:c.y-1,m:11}:{y:c.y,m:c.m-1})}>‹</button>
-              <span className="fl-fcal-title">{MONTHS[m]} {y}</span>
-              <button className="fl-mini" style={{background:"rgba(255,255,255,.12)",borderColor:"rgba(255,255,255,.2)",color:"#fff"}} onClick={()=>setCalCursor(c=>c.m===11?{y:c.y+1,m:0}:{y:c.y,m:c.m+1})}>›</button>
-            </div>
-            <div className="fl-fcal-grid">
-              {DOW.map(d=><div key={d} className="fl-fcal-dow">{d.slice(0,1)}</div>)}
-              {cells.map((iso,i)=>{
-                if(!iso)return<div key={i}/>;
-                return(<button key={iso} onClick={()=>onCalDay(iso)}
-                  className={"fl-fcal-day"+(iso===filter.from?" is-from":"")+(iso===filter.to&&iso!==filter.from?" is-to":"")+(filter.from&&filter.to&&iso>filter.from&&iso<filter.to?" in-range":"")}>
-                  {Number(iso.slice(8))}
-                </button>);
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const lme = () => {
+    const [y2, m2] = today.split("-");
+    return new Date(+y2, +m2 - 1, 0).toISOString().slice(0, 10);
+  };
+  const setQuick = (mode) => {
+    setShowCal(false);
+    setPicking(null);
+    if (mode === "today") {
+      setFilter((f) => ({ ...f, from: today, to: today }));
+      return;
+    }
+    if (mode === "week") {
+      setFilter((f) => ({ ...f, from: startOfWeek(today), to: endOfWeek(today) }));
+      return;
+    }
+    if (mode === "lastweek") {
+      setFilter((f) => ({ ...f, from: lws(), to: lwe() }));
+      return;
+    }
+    if (mode === "month") {
+      setFilter((f) => ({ ...f, from: startOfMonth(today), to: endOfMonth(today) }));
+      return;
+    }
+    if (mode === "lastmonth") {
+      setFilter((f) => ({ ...f, from: lms(), to: lme() }));
+      return;
+    }
+    if (mode === "year") {
+      setFilter((f) => ({ ...f, from: today.slice(0, 4) + "-01-01", to: today.slice(0, 4) + "-12-31" }));
+      return;
+    }
+    if (mode === "all") {
+      setFilter((f) => ({ ...f, from: "", to: "" }));
+      return;
+    }
+  };
+  const aq = () => {
+    if (!filter.from && !filter.to) return "all";
+    if (filter.from === today && filter.to === today) return "today";
+    if (filter.from === startOfWeek(today) && filter.to === endOfWeek(today)) return "week";
+    if (filter.from === lws() && filter.to === lwe()) return "lastweek";
+    if (filter.from === startOfMonth(today) && filter.to === endOfMonth(today)) return "month";
+    if (filter.from === lms() && filter.to === lme()) return "lastmonth";
+    if (filter.from === today.slice(0, 4) + "-01-01" && filter.to === today.slice(0, 4) + "-12-31") return "year";
+    return "custom";
+  };
+  const onCalDay = (iso) => {
+    if (!picking || picking === "from") {
+      setFilter((f) => ({ ...f, from: iso, to: iso }));
+      setPicking("to");
+    } else {
+      const [a, b] = iso < filter.from ? [iso, filter.from] : [filter.from, iso];
+      setFilter((f) => ({ ...f, from: a, to: b }));
+      setPicking(null);
+      setShowCal(false);
+    }
+  };
+  const clear = () => {
+    setFilter({ from: "", to: "", spot: "all" });
+    setShowCal(false);
+    setPicking(null);
+  };
+  const label = filterLabel(filter);
+  const { y, m } = calCursor;
+  const firstDow = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  return /* @__PURE__ */ React.createElement("div", { className: "fl-filterbar" }, /* @__PURE__ */ React.createElement("div", { className: "fl-filter-modes" }, [["all", "All Time"], ["today", "Today"], ["week", "This Week"], ["lastweek", "Last Week"], ["month", "This Month"], ["lastmonth", "Last Month"], ["year", "This Year"], ["custom", "Custom Range"]].map(([k, lbl]) => /* @__PURE__ */ React.createElement("button", { key: k, className: "fl-fmode" + (aq() === k ? " is-active" : ""), onClick: () => k === "custom" ? setShowCal((v) => !v) : setQuick(k) }, lbl))), /* @__PURE__ */ React.createElement("div", { className: "fl-filter-row2" }, /* @__PURE__ */ React.createElement("select", { className: "fl-filter-loc", value: filter.spot || "all", onChange: (e) => setFilter((f) => ({ ...f, spot: e.target.value })) }, /* @__PURE__ */ React.createElement("option", { value: "all" }, "All locations"), allSpots.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), label && /* @__PURE__ */ React.createElement("button", { className: "fl-fclear", onClick: clear }, "\u2715 Clear filter")), label && /* @__PURE__ */ React.createElement("div", { className: "fl-filter-active" }, "Showing: ", /* @__PURE__ */ React.createElement("b", null, label)), showCal && /* @__PURE__ */ React.createElement("div", { className: "fl-filter-cal-wrap" }, /* @__PURE__ */ React.createElement("div", { className: "fl-frange-hint" }, !picking || picking === "from" ? "Tap a start date" : `Start: ${fmtDate(filter.from)} \u2014 now tap an end date`), /* @__PURE__ */ React.createElement("div", { className: "fl-fcal" }, /* @__PURE__ */ React.createElement("div", { className: "fl-fcal-head" }, /* @__PURE__ */ React.createElement("button", { className: "fl-mini", style: { background: "rgba(255,255,255,.12)", borderColor: "rgba(255,255,255,.2)", color: "#fff" }, onClick: () => setCalCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 }) }, "\u2039"), /* @__PURE__ */ React.createElement("span", { className: "fl-fcal-title" }, MONTHS[m], " ", y), /* @__PURE__ */ React.createElement("button", { className: "fl-mini", style: { background: "rgba(255,255,255,.12)", borderColor: "rgba(255,255,255,.2)", color: "#fff" }, onClick: () => setCalCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 }) }, "\u203A")), /* @__PURE__ */ React.createElement("div", { className: "fl-fcal-grid" }, DOW.map((d) => /* @__PURE__ */ React.createElement("div", { key: d, className: "fl-fcal-dow" }, d.slice(0, 1))), cells.map((iso, i) => {
+    if (!iso) return /* @__PURE__ */ React.createElement("div", { key: i });
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: iso,
+        onClick: () => onCalDay(iso),
+        className: "fl-fcal-day" + (iso === filter.from ? " is-from" : "") + (iso === filter.to && iso !== filter.from ? " is-to" : "") + (filter.from && filter.to && iso > filter.from && iso < filter.to ? " in-range" : "")
+      },
+      Number(iso.slice(8))
+    );
+  })))));
 }
-
-// ── LeafletCatchMap ────────────────────────────────────────────────────────
-function LeafletCatchMap({clusters,onSelect}){
-  const divRef=useRef(null),mapRef=useRef(null),layerRef=useRef(null);
-  const buildMarkers=useCallback((L,list)=>{
-    layerRef.current?.clearLayers();
-    list.forEach(cl=>{
-      const r=Math.min(34,10+cl.count*2.2),hex=speciesHex(cl.dominant);
-      const html=`<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${hex};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:monospace;font-size:${r>14?13:11}px">${cl.count}</div>`;
-      const icon=L.divIcon({html,className:"",iconSize:[r*2,r*2],iconAnchor:[r,r]});
-      const mk=L.marker([cl.lat,cl.lng],{icon});
-      const tip=Object.entries(cl.species).map(([s,n])=>`<span style="display:block">${s}: <b>${n}</b></span>`).join("");
-      mk.bindPopup(`<b style="font-size:14px">${cl.name}</b><br/>${tip}`,{maxWidth:220});
-      mk.on("click",()=>onSelect(cl));
+function LeafletCatchMap({ clusters, onSelect }) {
+  const divRef = useRef(null), mapRef = useRef(null), layerRef = useRef(null);
+  const buildMarkers = useCallback((L, list) => {
+    var _a;
+    (_a = layerRef.current) == null ? void 0 : _a.clearLayers();
+    list.forEach((cl) => {
+      const r = Math.min(34, 10 + cl.count * 2.2), hex = speciesHex(cl.dominant);
+      const html = `<div style="width:${r * 2}px;height:${r * 2}px;border-radius:50%;background:${hex};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:monospace;font-size:${r > 14 ? 13 : 11}px">${cl.count}</div>`;
+      const icon = L.divIcon({ html, className: "", iconSize: [r * 2, r * 2], iconAnchor: [r, r] });
+      const mk = L.marker([cl.lat, cl.lng], { icon });
+      const tip = Object.entries(cl.species).map(([s, n]) => `<span style="display:block">${s}: <b>${n}</b></span>`).join("");
+      mk.bindPopup(`<b style="font-size:14px">${cl.name}</b><br/>${tip}`, { maxWidth: 220 });
+      mk.on("click", () => onSelect(cl));
       mk.addTo(layerRef.current);
     });
-    if(list.length>0){
-      const lats=list.map(c=>c.lat),lngs=list.map(c=>c.lng);
-      mapRef.current.fitBounds([[Math.min(...lats)-.02,Math.min(...lngs)-.02],[Math.max(...lats)+.02,Math.max(...lngs)+.02]],{maxZoom:13});
+    if (list.length > 0) {
+      const lats = list.map((c) => c.lat), lngs = list.map((c) => c.lng);
+      mapRef.current.fitBounds([[Math.min(...lats) - 0.02, Math.min(...lngs) - 0.02], [Math.max(...lats) + 0.02, Math.max(...lngs) + 0.02]], { maxZoom: 13 });
     }
-  },[onSelect]);
-  useEffect(()=>{
-    if(!divRef.current||mapRef.current)return;
-    const L=window.L;
-    mapRef.current=L.map(divRef.current,{zoomControl:true,scrollWheelZoom:true}).setView([29.22,-90.27],10);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:18}).addTo(mapRef.current);
-    layerRef.current=L.layerGroup().addTo(mapRef.current);
-    buildMarkers(L,clusters);
-  },[]);
-  useEffect(()=>{if(mapRef.current)buildMarkers(window.L,clusters);},[clusters]);
-  return <div ref={divRef} className="fl-leaflet"/>;
+  }, [onSelect]);
+  useEffect(() => {
+    if (!divRef.current || mapRef.current) return;
+    const L = window.L;
+    mapRef.current = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: true }).setView([29.22, -90.27], 10);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '\xA9 <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 18 }).addTo(mapRef.current);
+    layerRef.current = L.layerGroup().addTo(mapRef.current);
+    buildMarkers(L, clusters);
+  }, []);
+  useEffect(() => {
+    if (mapRef.current) buildMarkers(window.L, clusters);
+  }, [clusters]);
+  return /* @__PURE__ */ React.createElement("div", { ref: divRef, className: "fl-leaflet" });
 }
-
-// ── LeafletPicker ──────────────────────────────────────────────────────────
-function LeafletPicker({lat,lng,onPick}){
-  const divRef=useRef(null),mapRef=useRef(null),pinRef=useRef(null);
-  useEffect(()=>{
-    if(!divRef.current||mapRef.current)return;
-    const L=window.L,sLat=isNaN(lat)?29.246:lat,sLng=isNaN(lng)?-90.211:lng;
-    mapRef.current=L.map(divRef.current,{zoomControl:true,scrollWheelZoom:false}).setView([sLat,sLng],12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'© OSM',maxZoom:18}).addTo(mapRef.current);
-    const icon=L.divIcon({html:`<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#a8432b;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`,className:"",iconSize:[22,22],iconAnchor:[11,22]});
-    pinRef.current=L.marker([sLat,sLng],{icon,draggable:true}).addTo(mapRef.current);
-    pinRef.current.on("dragend",e=>{const p=e.target.getLatLng();onPick(p.lat,p.lng);});
-    mapRef.current.on("click",e=>{pinRef.current.setLatLng(e.latlng);onPick(e.latlng.lat,e.latlng.lng);});
-  },[]);
-  useEffect(()=>{if(pinRef.current&&!isNaN(lat)&&!isNaN(lng))pinRef.current.setLatLng([lat,lng]);},[lat,lng]);
-  return <div ref={divRef} className="fl-leaflet fl-leaflet-picker"/>;
+function LeafletPicker({ lat, lng, onPick }) {
+  const divRef = useRef(null), mapRef = useRef(null), pinRef = useRef(null);
+  useEffect(() => {
+    if (!divRef.current || mapRef.current) return;
+    const L = window.L, sLat = isNaN(lat) ? 29.246 : lat, sLng = isNaN(lng) ? -90.211 : lng;
+    mapRef.current = L.map(divRef.current, { zoomControl: true, scrollWheelZoom: false }).setView([sLat, sLng], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "\xA9 OSM", maxZoom: 18 }).addTo(mapRef.current);
+    const icon = L.divIcon({ html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#a8432b;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);transform:rotate(-45deg)"></div>`, className: "", iconSize: [22, 22], iconAnchor: [11, 22] });
+    pinRef.current = L.marker([sLat, sLng], { icon, draggable: true }).addTo(mapRef.current);
+    pinRef.current.on("dragend", (e) => {
+      const p = e.target.getLatLng();
+      onPick(p.lat, p.lng);
+    });
+    mapRef.current.on("click", (e) => {
+      pinRef.current.setLatLng(e.latlng);
+      onPick(e.latlng.lat, e.latlng.lng);
+    });
+  }, []);
+  useEffect(() => {
+    if (pinRef.current && !isNaN(lat) && !isNaN(lng)) pinRef.current.setLatLng([lat, lng]);
+  }, [lat, lng]);
+  return /* @__PURE__ */ React.createElement("div", { ref: divRef, className: "fl-leaflet fl-leaflet-picker" });
 }
-
-// ── Calendar ───────────────────────────────────────────────────────────────
-function Calendar({cursor,setCursor,trips,selectedDay,setSelectedDay,onEdit,onDel}){
-  const{y,m}=cursor;
-  const startDow=new Date(y,m,1).getDay(),daysInMonth=new Date(y,m+1,0).getDate();
-  const byDay={};
-  trips.forEach(t=>{const d=new Date(t.date+"T00:00");if(d.getFullYear()===y&&d.getMonth()===m)(byDay[d.getDate()]=byDay[d.getDate()]||[]).push(t);});
-  const cells=[];for(let i=0;i<startDow;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
-  const dayTrips=selectedDay?(byDay[selectedDay]||[]):[];
-  return(
-    <div className="fl-card">
-      <div className="fl-calhead">
-        <button className="fl-mini" onClick={()=>{setSelectedDay(null);setCursor(m===0?{y:y-1,m:11}:{y,m:m-1});}}>‹</button>
-        <h2 className="fl-h2" style={{margin:0}}>{MONTHS[m]} {y}</h2>
-        <button className="fl-mini" onClick={()=>{setSelectedDay(null);setCursor(m===11?{y:y+1,m:0}:{y,m:m+1});}}>›</button>
-      </div>
-      <div className="fl-cal">
-        {DOW.map(d=><div key={d} className="fl-cal-dow">{d}</div>)}
-        {cells.map((d,i)=>{
-          if(!d)return<div key={i} className="fl-cal-cell fl-cal-empty"/>;
-          const list=byDay[d]||[],total=list.reduce((s,t)=>s+tripFish(t),0);
-          const sps=[...new Set(list.flatMap(t=>t.stops.flatMap(st=>st.catches.filter(c=>catchTotal(c)>0).map(resolveSpecies))))];
-          return(
-            <button key={i} className={"fl-cal-cell"+(selectedDay===d?" is-sel":"")+(list.length?" has-catch":"")} onClick={()=>setSelectedDay(selectedDay===d?null:d)}>
-              <span className="fl-cal-num">{d}</span>
-              {list.length>0&&<span className="fl-cal-dots">{sps.slice(0,3).map((s,j)=><i key={j} style={{background:speciesColor(s)}}/>)}<em>{total}</em></span>}
-            </button>
-          );
-        })}
-      </div>
-      {selectedDay&&(
-        <div className="fl-daylist">
-          <h3 className="fl-h3">{MONTHS[m]} {selectedDay}</h3>
-          {dayTrips.length===0?<div className="fl-empty">No trips this day.</div>:
-            dayTrips.map(t=>(
-              <div key={t.id} className="fl-day-trip">
-                <div className="fl-day-trip-head"><b>{tripFish(t)} fish</b> · {t.stops.length} stops
-                  <button className="fl-mini" onClick={()=>onEdit(t)}>edit</button>
-                  <button className="fl-mini fl-mini-del" onClick={()=>onDel(t.id)}>×</button>
-                </div>
-                {t.stops.map((st,i)=><div key={st.id} className="fl-day-stop">↳ {st.spot} ({st.time}): {stopSummary(st)}</div>)}
-              </div>
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Field({label,children,wide}){
-  return(<label className={"fl-field"+(wide?" fl-field-wide":"")}>
-    <span className="fl-flabel">{label}</span>{children}
-  </label>);
-}
-function Stat({n,l}){
-  return<div className="fl-card fl-statcard"><div className="fl-statnum">{n}</div><div className="fl-statlbl">{l}</div></div>;
-}
-
-// ── App ────────────────────────────────────────────────────────────────────
-function App(){
-  const [trips,setTrips]=useState([]);
-  const [loaded,setLoaded]=useState(false);
-  const [tab,setTab]=useState("log");
-  const [trip,setTrip]=useState(emptyTrip());
-  const [pickerStopId,setPickerStopId]=useState(null);
-  const [search,setSearch]=useState("");
-  const [cursor,setCursor]=useState(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()};});
-  const [selectedDay,setSelectedDay]=useState(null);
-  const [mapInfo,setMapInfo]=useState(null);
-  const [filter,setFilter]=useState({from:"",to:"",spot:"all"});
-  const [gdrive,setGdrive]=useState("idle");
-  const [gToken,setGToken]=useState(null);
-  const [gUser,setGUser]=useState(null);
-  const [showImport,setShowImport]=useState(false);
-  const [importText,setImportText]=useState("");
-  const [ioMsg,setIoMsg]=useState(null);
-
-  useEffect(()=>{
-    const val=storageGet("fishingLog:trips");
-    if(val){try{setTrips(JSON.parse(val));}catch(e){}}
-    setLoaded(true);
-  },[]);
-
-  const persist=next=>{setTrips(next);storageSet("fishingLog:trips",JSON.stringify(next));};
-
-  // ── Google OAuth ──────────────────────────────────────────────────────────
-  const signInGoogle=()=>new Promise((resolve,reject)=>{
-    const init=()=>{
-      const client=window.google.accounts.oauth2.initTokenClient({
-        client_id:GCLIENT_ID,scope:GSCOPE,
-        callback:resp=>{
-          if(resp.error){reject(resp.error);return;}
-          setGToken(resp.access_token);
-          fetch("https://www.googleapis.com/oauth2/v3/userinfo",{headers:{Authorization:`Bearer ${resp.access_token}`}})
-            .then(r=>r.json()).then(u=>setGUser(u.email)).catch(()=>{});
-          resolve(resp.access_token);
-        }
-      });
-      client.requestAccessToken({prompt:gToken?"":"consent"});
-    };
-    if(window.google?.accounts?.oauth2){init();return;}
-    const s=document.createElement("script");
-    s.src="https://accounts.google.com/gsi/client";
-    s.onload=init;s.onerror=()=>reject("Google sign-in failed to load");
-    document.head.appendChild(s);
+function Calendar({ cursor, setCursor, trips, selectedDay, setSelectedDay, onEdit, onDel }) {
+  const { y, m } = cursor;
+  const startDow = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m + 1, 0).getDate();
+  const byDay = {};
+  trips.forEach((t) => {
+    const d = /* @__PURE__ */ new Date(t.date + "T00:00");
+    if (d.getFullYear() === y && d.getMonth() === m) (byDay[d.getDate()] = byDay[d.getDate()] || []).push(t);
   });
-
-  const signOutGoogle=()=>{setGToken(null);setGUser(null);};
-  const getToken=async()=>{if(gToken)return gToken;return signInGoogle();};
-
-  const findFileId=async token=>{
-    const r=await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'marsh-logbook.json'+and+trashed%3Dfalse&fields=files(id)&spaces=drive",{headers:{Authorization:`Bearer ${token}`}});
-    if(!r.ok)throw new Error(`Drive search ${r.status}`);
-    const d=await r.json();return d.files?.[0]?.id||null;
-  };
-
-  const saveToGDrive=async()=>{
-    setGdrive("saving");
-    try{
-      const token=await getToken();
-      const json=JSON.stringify({version:1,exported:new Date().toISOString(),trips},null,2);
-      const blob=new Blob([json],{type:"application/json"});
-      const fileId=await findFileId(token);
-      if(fileId){
-        const r=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-          {method:"PATCH",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:blob});
-        if(!r.ok)throw new Error(`Update failed ${r.status}`);
-      }else{
-        const meta=new Blob([JSON.stringify({name:"marsh-logbook.json",mimeType:"application/json"})],{type:"application/json"});
-        const form=new FormData();form.append("metadata",meta);form.append("file",blob);
-        const r=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-          {method:"POST",headers:{Authorization:`Bearer ${token}`},body:form});
-        if(!r.ok)throw new Error(`Create failed ${r.status}`);
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dayTrips = selectedDay ? byDay[selectedDay] || [] : [];
+  return /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("div", { className: "fl-calhead" }, /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => {
+    setSelectedDay(null);
+    setCursor(m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 });
+  } }, "\u2039"), /* @__PURE__ */ React.createElement("h2", { className: "fl-h2", style: { margin: 0 } }, MONTHS[m], " ", y), /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => {
+    setSelectedDay(null);
+    setCursor(m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 });
+  } }, "\u203A")), /* @__PURE__ */ React.createElement("div", { className: "fl-cal" }, DOW.map((d) => /* @__PURE__ */ React.createElement("div", { key: d, className: "fl-cal-dow" }, d)), cells.map((d, i) => {
+    if (!d) return /* @__PURE__ */ React.createElement("div", { key: i, className: "fl-cal-cell fl-cal-empty" });
+    const list = byDay[d] || [], total = list.reduce((s, t) => s + tripFish(t), 0);
+    const sps = [...new Set(list.flatMap((t) => t.stops.flatMap((st) => st.catches.filter((c) => catchTotal(c) > 0).map(resolveSpecies))))];
+    return /* @__PURE__ */ React.createElement("button", { key: i, className: "fl-cal-cell" + (selectedDay === d ? " is-sel" : "") + (list.length ? " has-catch" : ""), onClick: () => setSelectedDay(selectedDay === d ? null : d) }, /* @__PURE__ */ React.createElement("span", { className: "fl-cal-num" }, d), list.length > 0 && /* @__PURE__ */ React.createElement("span", { className: "fl-cal-dots" }, sps.slice(0, 3).map((s, j) => /* @__PURE__ */ React.createElement("i", { key: j, style: { background: speciesColor(s) } })), /* @__PURE__ */ React.createElement("em", null, total)));
+  })), selectedDay && /* @__PURE__ */ React.createElement("div", { className: "fl-daylist" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, MONTHS[m], " ", selectedDay), dayTrips.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "No trips this day.") : dayTrips.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, className: "fl-day-trip" }, /* @__PURE__ */ React.createElement("div", { className: "fl-day-trip-head" }, /* @__PURE__ */ React.createElement("b", null, tripFish(t), " fish"), " \xB7 ", t.stops.length, " stops", /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => onEdit(t) }, "edit"), /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => onDel(t.id) }, "\xD7")), t.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-day-stop" }, "\u21B3 ", st.spot, " (", st.time, "): ", stopSummary(st)))))));
+}
+function Field({ label, children, wide }) {
+  return /* @__PURE__ */ React.createElement("label", { className: "fl-field" + (wide ? " fl-field-wide" : "") }, /* @__PURE__ */ React.createElement("span", { className: "fl-flabel" }, label), children);
+}
+function Stat({ n, l }) {
+  return /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-statcard" }, /* @__PURE__ */ React.createElement("div", { className: "fl-statnum" }, n), /* @__PURE__ */ React.createElement("div", { className: "fl-statlbl" }, l));
+}
+function App() {
+  const [trips, setTrips] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [tab, setTab] = useState("log");
+  const [trip, setTrip] = useState(emptyTrip());
+  const [pickerStopId, setPickerStopId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [cursor, setCursor] = useState(() => {
+    const d = /* @__PURE__ */ new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [mapInfo, setMapInfo] = useState(null);
+  const [filter, setFilter] = useState({ from: "", to: "", spot: "all" });
+  const [gdrive, setGdrive] = useState("idle");
+  const [gToken, setGToken] = useState(null);
+  const [gUser, setGUser] = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [ioMsg, setIoMsg] = useState(null);
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.slice(1));
+      const token = params.get("access_token");
+      const expIn = params.get("expires_in");
+      if (token) {
+        setGToken(token);
+        storageSet("gTokenExpiry", String(Date.now() + (parseInt(expIn) || 3599) * 1e3));
+        fetch("https://www.googleapis.com/oauth2/v3/userinfo", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).then((u) => {
+          setGUser(u.email);
+          storageSet("gUser", u.email);
+        }).catch(() => {
+        });
+        window.history.replaceState(null, "", window.location.pathname);
       }
-      setGdrive("idle");setIoMsg({ok:true,text:"✓ Saved to Google Drive"});
-      setTimeout(()=>setIoMsg(null),5000);
-    }catch(err){
-      setGToken(null);setGdrive("error");
-      setIoMsg({ok:false,text:`✗ Save failed: ${err.message}`});
-      setTimeout(()=>{setGdrive("idle");setIoMsg(null);},7000);
+    }
+    const savedUser = storageGet("gUser");
+    if (savedUser) setGUser(savedUser);
+    const val = storageGet("fishingLog:trips");
+    if (val) {
+      try {
+        setTrips(JSON.parse(val));
+      } catch (e) {
+      }
+    }
+    setLoaded(true);
+  }, []);
+  const persist = (next) => {
+    setTrips(next);
+    storageSet("fishingLog:trips", JSON.stringify(next));
+  };
+  const REDIRECT_URI = "https://dpchiasson.github.io/marsh-logbook";
+  const signInGoogle = () => {
+    const authUrl = "https://accounts.google.com/o/oauth2/auth?client_id=" + encodeURIComponent(GCLIENT_ID) + "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) + "&response_type=token&scope=" + encodeURIComponent(GSCOPE) + "&include_granted_scopes=true&prompt=select_account";
+    window.location.href = authUrl;
+  };
+  const signOutGoogle = () => {
+    setGToken(null);
+    setGUser(null);
+    storageSet("gUser", "");
+    storageSet("gTokenExpiry", "0");
+  };
+  const getToken = async () => {
+    const expiry = parseInt(storageGet("gTokenExpiry") || "0");
+    if (gToken && Date.now() < expiry) return gToken;
+    signInGoogle();
+    throw new Error("Redirecting to sign in\u2026");
+  };
+  const findFileId = async (token) => {
+    var _a, _b;
+    const r = await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'marsh-logbook.json'+and+trashed%3Dfalse&fields=files(id)&spaces=drive", { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`Drive search ${r.status}`);
+    const d = await r.json();
+    return ((_b = (_a = d.files) == null ? void 0 : _a[0]) == null ? void 0 : _b.id) || null;
+  };
+  const saveToGDrive = async () => {
+    setGdrive("saving");
+    try {
+      const token = await getToken();
+      const json = JSON.stringify({ version: 1, exported: (/* @__PURE__ */ new Date()).toISOString(), trips }, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const fileId = await findFileId(token);
+      if (fileId) {
+        const r = await fetch(
+          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+          { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: blob }
+        );
+        if (!r.ok) throw new Error(`Update failed ${r.status}`);
+      } else {
+        const meta = new Blob([JSON.stringify({ name: "marsh-logbook.json", mimeType: "application/json" })], { type: "application/json" });
+        const form = new FormData();
+        form.append("metadata", meta);
+        form.append("file", blob);
+        const r = await fetch(
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+          { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form }
+        );
+        if (!r.ok) throw new Error(`Create failed ${r.status}`);
+      }
+      setGdrive("idle");
+      setIoMsg({ ok: true, text: "\u2713 Saved to Google Drive" });
+      setTimeout(() => setIoMsg(null), 5e3);
+    } catch (err) {
+      setGToken(null);
+      setGdrive("error");
+      setIoMsg({ ok: false, text: `\u2717 Save failed: ${err.message}` });
+      setTimeout(() => {
+        setGdrive("idle");
+        setIoMsg(null);
+      }, 7e3);
     }
   };
-
-  const loadFromGDrive=async()=>{
+  const loadFromGDrive = async () => {
     setGdrive("loading");
-    try{
-      const token=await getToken();
-      const fileId=await findFileId(token);
-      if(!fileId)throw new Error("marsh-logbook.json not found in your Drive");
-      const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});
-      if(!r.ok)throw new Error(`Download failed ${r.status}`);
-      const data=await r.json();
-      const incoming=data.trips||(Array.isArray(data)?data:null);
-      if(!incoming)throw new Error("Unrecognized file format");
-      const existingIds=new Set(trips.map(t=>t.id));
-      const toAdd=incoming.filter(t=>!existingIds.has(t.id));
-      const merged=[...trips,...toAdd].sort((a,b)=>b.date.localeCompare(a.date));
+    try {
+      const token = await getToken();
+      const fileId = await findFileId(token);
+      if (!fileId) throw new Error("marsh-logbook.json not found in your Drive");
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`Download failed ${r.status}`);
+      const data = await r.json();
+      const incoming = data.trips || (Array.isArray(data) ? data : null);
+      if (!incoming) throw new Error("Unrecognized file format");
+      const existingIds = new Set(trips.map((t) => t.id));
+      const toAdd = incoming.filter((t) => !existingIds.has(t.id));
+      const merged = [...trips, ...toAdd].sort((a, b) => b.date.localeCompare(a.date));
       persist(merged);
-      setGdrive("idle");setIoMsg({ok:true,text:`✓ Loaded — ${toAdd.length} new trip${toAdd.length!==1?"s":""} added`});
-      setTimeout(()=>setIoMsg(null),6000);
-    }catch(err){
-      setGToken(null);setGdrive("error");
-      setIoMsg({ok:false,text:`✗ Load failed: ${err.message}`});
-      setTimeout(()=>{setGdrive("idle");setIoMsg(null);},7000);
+      setGdrive("idle");
+      setIoMsg({ ok: true, text: `\u2713 Loaded \u2014 ${toAdd.length} new trip${toAdd.length !== 1 ? "s" : ""} added` });
+      setTimeout(() => setIoMsg(null), 6e3);
+    } catch (err) {
+      setGToken(null);
+      setGdrive("error");
+      setIoMsg({ ok: false, text: `\u2717 Load failed: ${err.message}` });
+      setTimeout(() => {
+        setGdrive("idle");
+        setIoMsg(null);
+      }, 7e3);
     }
   };
-
-  const importFromText=()=>{
-    try{
-      const raw=importText.trim().replace(/```json/gi,"").replace(/```/g,"");
-      const s=raw.indexOf("{"),e=raw.lastIndexOf("}");
-      const json=s!==-1&&e>s?raw.slice(s,e+1):raw;
-      const data=JSON.parse(json);
-      const incoming=data.trips||(Array.isArray(data)?data:null);
-      if(!incoming)throw new Error("Unrecognized format");
-      const existingIds=new Set(trips.map(t=>t.id));
-      const toAdd=incoming.filter(t=>!existingIds.has(t.id));
-      persist([...trips,...toAdd].sort((a,b)=>b.date.localeCompare(a.date)));
-      setIoMsg({ok:true,text:`✓ Imported ${toAdd.length} new trip${toAdd.length!==1?"s":""}`});
-      setImportText("");setShowImport(false);
-      setTimeout(()=>setIoMsg(null),6000);
-    }catch(err){
-      setIoMsg({ok:false,text:`✗ Import failed: ${err.message}`});
-      setTimeout(()=>setIoMsg(null),6000);
+  const importFromText = () => {
+    try {
+      const raw = importText.trim().replace(/```json/gi, "").replace(/```/g, "");
+      const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+      const json = s !== -1 && e > s ? raw.slice(s, e + 1) : raw;
+      const data = JSON.parse(json);
+      const incoming = data.trips || (Array.isArray(data) ? data : null);
+      if (!incoming) throw new Error("Unrecognized format");
+      const existingIds = new Set(trips.map((t) => t.id));
+      const toAdd = incoming.filter((t) => !existingIds.has(t.id));
+      persist([...trips, ...toAdd].sort((a, b) => b.date.localeCompare(a.date)));
+      setIoMsg({ ok: true, text: `\u2713 Imported ${toAdd.length} new trip${toAdd.length !== 1 ? "s" : ""}` });
+      setImportText("");
+      setShowImport(false);
+      setTimeout(() => setIoMsg(null), 6e3);
+    } catch (err) {
+      setIoMsg({ ok: false, text: `\u2717 Import failed: ${err.message}` });
+      setTimeout(() => setIoMsg(null), 6e3);
     }
   };
-
-  // ── Form helpers ──────────────────────────────────────────────────────────
-  const setTF=(k,v)=>setTrip(t=>({...t,[k]:v}));
-  const patchStop=(sid,p)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,...p}:s)}));
-  const addStop=()=>setTrip(t=>({...t,stops:[...t.stops,emptyStop()]}));
-  const removeStop=sid=>setTrip(t=>({...t,stops:t.stops.length>1?t.stops.filter(s=>s.id!==sid):t.stops}));
-  const addCatch=sid=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:[...s.catches,emptyCatch()]}:s)}));
-  const removeCatch=(sid,cid)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.length>1?s.catches.filter(c=>c.id!==cid):s.catches}:s)}));
-  const patchCatch=(sid,cid,p)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.map(c=>c.id===cid?{...c,...p}:c)}:s)}));
-  const setCatchCount=(sid,cid,key,val)=>setTrip(t=>({...t,stops:t.stops.map(s=>s.id===sid?{...s,catches:s.catches.map(c=>c.id===cid?{...c,counts:{...c.counts,[key]:val}}:c)}:s)}));
-  const setCatchSpecies=(sid,cid,sp)=>patchCatch(sid,cid,{species:sp,counts:{}});
-  const onPickSpot=(sid,name)=>{const s=SPOTS.find(x=>x.name===name);if(s)patchStop(sid,{spot:name,lat:String(s.lat),lng:String(s.lng)});else patchStop(sid,{spot:name});};
-  const onDropPin=(sid,lat,lng)=>patchStop(sid,{lat:lat.toFixed(4),lng:lng.toFixed(4)});
-  const saveTrip=()=>{
-    const rec={...trip,id:trip.id||uid()};
-    const next=trip.id?trips.map(t=>t.id===trip.id?rec:t):[rec,...trips];
-    persist(next);setTrip(emptyTrip());setPickerStopId(null);setTab("list");
+  const setTF = (k, v) => setTrip((t) => ({ ...t, [k]: v }));
+  const patchStop = (sid, p) => setTrip((t) => ({ ...t, stops: t.stops.map((s) => s.id === sid ? { ...s, ...p } : s) }));
+  const addStop = () => setTrip((t) => ({ ...t, stops: [...t.stops, emptyStop()] }));
+  const removeStop = (sid) => setTrip((t) => ({ ...t, stops: t.stops.length > 1 ? t.stops.filter((s) => s.id !== sid) : t.stops }));
+  const addCatch = (sid) => setTrip((t) => ({ ...t, stops: t.stops.map((s) => s.id === sid ? { ...s, catches: [...s.catches, emptyCatch()] } : s) }));
+  const removeCatch = (sid, cid) => setTrip((t) => ({ ...t, stops: t.stops.map((s) => s.id === sid ? { ...s, catches: s.catches.length > 1 ? s.catches.filter((c) => c.id !== cid) : s.catches } : s) }));
+  const patchCatch = (sid, cid, p) => setTrip((t) => ({ ...t, stops: t.stops.map((s) => s.id === sid ? { ...s, catches: s.catches.map((c) => c.id === cid ? { ...c, ...p } : c) } : s) }));
+  const setCatchCount = (sid, cid, key, val) => setTrip((t) => ({ ...t, stops: t.stops.map((s) => s.id === sid ? { ...s, catches: s.catches.map((c) => c.id === cid ? { ...c, counts: { ...c.counts, [key]: val } } : c) } : s) }));
+  const setCatchSpecies = (sid, cid, sp) => patchCatch(sid, cid, { species: sp, counts: {} });
+  const onPickSpot = (sid, name) => {
+    const s = SPOTS.find((x) => x.name === name);
+    if (s) patchStop(sid, { spot: name, lat: String(s.lat), lng: String(s.lng) });
+    else patchStop(sid, { spot: name });
   };
-  const editTrip=t=>{setTrip(JSON.parse(JSON.stringify(t)));setPickerStopId(null);setTab("log");};
-  const delTrip=id=>{if(window.confirm("Delete this whole trip?"))persist(trips.filter(t=>t.id!==id));};
-
-  // ── Derived data ──────────────────────────────────────────────────────────
-  const allLoggedSpots=useMemo(()=>[...new Set(trips.flatMap(t=>t.stops.map(st=>st.spot)))].sort(),[trips]);
-  const filteredBase=useMemo(()=>applyFilter(trips,filter),[trips,filter]);
-  const listTrips=useMemo(()=>{
-    const arr=[...filteredBase].sort((a,b)=>b.date.localeCompare(a.date));
-    if(!search)return arr;
-    const q=search.toLowerCase();
-    return arr.filter(t=>[t.notes,...t.stops.flatMap(s=>[s.spot,s.bait,s.notes,...s.catches.map(resolveSpecies)])].join(" ").toLowerCase().includes(q));
-  },[filteredBase,search]);
-  const clusters=useMemo(()=>{
-    const m={};
-    filteredBase.forEach(t=>t.stops.forEach(st=>{
-      const lat=parseFloat(st.lat),lng=parseFloat(st.lng);if(isNaN(lat)||isNaN(lng))return;
-      const key=st.spot||`${lat.toFixed(3)},${lng.toFixed(3)}`;
-      if(!m[key])m[key]={key,name:st.spot||"Unnamed",lat,lng,count:0,species:{}};
-      m[key].lat=lat;m[key].lng=lng;
-      st.catches.forEach(c=>{const tot=catchTotal(c);if(!tot)return;const sp=resolveSpecies(c);m[key].count+=tot;m[key].species[sp]=(m[key].species[sp]||0)+tot;});
+  const onDropPin = (sid, lat, lng) => patchStop(sid, { lat: lat.toFixed(4), lng: lng.toFixed(4) });
+  const saveTrip = () => {
+    const rec = { ...trip, id: trip.id || uid() };
+    const next = trip.id ? trips.map((t) => t.id === trip.id ? rec : t) : [rec, ...trips];
+    persist(next);
+    setTrip(emptyTrip());
+    setPickerStopId(null);
+    setTab("list");
+  };
+  const editTrip = (t) => {
+    setTrip(JSON.parse(JSON.stringify(t)));
+    setPickerStopId(null);
+    setTab("log");
+  };
+  const delTrip = (id) => {
+    if (window.confirm("Delete this whole trip?")) persist(trips.filter((t) => t.id !== id));
+  };
+  const allLoggedSpots = useMemo(() => [...new Set(trips.flatMap((t) => t.stops.map((st) => st.spot)))].sort(), [trips]);
+  const filteredBase = useMemo(() => applyFilter(trips, filter), [trips, filter]);
+  const listTrips = useMemo(() => {
+    const arr = [...filteredBase].sort((a, b) => b.date.localeCompare(a.date));
+    if (!search) return arr;
+    const q = search.toLowerCase();
+    return arr.filter((t) => [t.notes, ...t.stops.flatMap((s) => [s.spot, s.bait, s.notes, ...s.catches.map(resolveSpecies)])].join(" ").toLowerCase().includes(q));
+  }, [filteredBase, search]);
+  const clusters = useMemo(() => {
+    const m = {};
+    filteredBase.forEach((t) => t.stops.forEach((st) => {
+      const lat = parseFloat(st.lat), lng = parseFloat(st.lng);
+      if (isNaN(lat) || isNaN(lng)) return;
+      const key = st.spot || `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if (!m[key]) m[key] = { key, name: st.spot || "Unnamed", lat, lng, count: 0, species: {} };
+      m[key].lat = lat;
+      m[key].lng = lng;
+      st.catches.forEach((c) => {
+        const tot = catchTotal(c);
+        if (!tot) return;
+        const sp = resolveSpecies(c);
+        m[key].count += tot;
+        m[key].species[sp] = (m[key].species[sp] || 0) + tot;
+      });
     }));
-    return Object.values(m).filter(c=>c.count>0).map(cl=>{const dom=Object.entries(cl.species).sort((a,b)=>b[1]-a[1])[0];return{...cl,dominant:dom?dom[0]:""};});
-  },[filteredBase]);
-  const stats=useMemo(()=>{
-    let total=0,kept=0;const bySpecies={},bySpot={},byMonth=Array(12).fill(0),tide={},moon={},clar={};
-    const troutTally={keepers:0,over20:0,under:0},redTally={kept:0,bull:0,under:0};
-    filteredBase.forEach(t=>{
-      const mo=num(t.date.slice(5,7))-1,tf=tripFish(t);
-      if(tf>0){tide[t.tide]=(tide[t.tide]||0)+tf;moon[t.moon]=(moon[t.moon]||0)+tf;if(t.clarity)clar[t.clarity]=(clar[t.clarity]||0)+tf;}
-      t.stops.forEach(st=>{
-        const sf=stopFish(st);if(sf>0){bySpot[st.spot]=(bySpot[st.spot]||0)+sf;if(mo>=0)byMonth[mo]+=sf;}
-        st.catches.forEach(c=>{
-          const tot=catchTotal(c);if(!tot)return;total+=tot;kept+=catchKept(c);
-          const sp=resolveSpecies(c);bySpecies[sp]=(bySpecies[sp]||0)+tot;
-          if(c.species===TROUT)TROUT_FIELDS.forEach(f=>troutTally[f.key]+=num(c.counts?.[f.key]));
-          if(c.species===REDFISH)RED_FIELDS.forEach(f=>redTally[f.key]+=num(c.counts?.[f.key]));
+    return Object.values(m).filter((c) => c.count > 0).map((cl) => {
+      const dom = Object.entries(cl.species).sort((a, b) => b[1] - a[1])[0];
+      return { ...cl, dominant: dom ? dom[0] : "" };
+    });
+  }, [filteredBase]);
+  const stats = useMemo(() => {
+    let total = 0, kept = 0;
+    const bySpecies = {}, bySpot = {}, byMonth = Array(12).fill(0), tide = {}, moon = {}, clar = {};
+    const troutTally = { keepers: 0, over20: 0, under: 0 }, redTally = { kept: 0, bull: 0, under: 0 };
+    filteredBase.forEach((t) => {
+      const mo = num(t.date.slice(5, 7)) - 1, tf = tripFish(t);
+      if (tf > 0) {
+        tide[t.tide] = (tide[t.tide] || 0) + tf;
+        moon[t.moon] = (moon[t.moon] || 0) + tf;
+        if (t.clarity) clar[t.clarity] = (clar[t.clarity] || 0) + tf;
+      }
+      t.stops.forEach((st) => {
+        const sf = stopFish(st);
+        if (sf > 0) {
+          bySpot[st.spot] = (bySpot[st.spot] || 0) + sf;
+          if (mo >= 0) byMonth[mo] += sf;
+        }
+        st.catches.forEach((c) => {
+          const tot = catchTotal(c);
+          if (!tot) return;
+          total += tot;
+          kept += catchKept(c);
+          const sp = resolveSpecies(c);
+          bySpecies[sp] = (bySpecies[sp] || 0) + tot;
+          if (c.species === TROUT) TROUT_FIELDS.forEach((f) => {
+            var _a;
+            return troutTally[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
+          });
+          if (c.species === REDFISH) RED_FIELDS.forEach((f) => {
+            var _a;
+            return redTally[f.key] += num((_a = c.counts) == null ? void 0 : _a[f.key]);
+          });
         });
       });
     });
-    const top1=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0];
-    return{total,kept,released:total-kept,bySpeciesArr:Object.entries(bySpecies).sort((a,b)=>b[1]-a[1]),topSpots:Object.entries(bySpot).sort((a,b)=>b[1]-a[1]).slice(0,5),byMonth,maxMonth:Math.max(1,...byMonth),hotTide:top1(tide),hotMoon:top1(moon),hotClar:top1(clar),troutTally,redTally,trips:filteredBase.length};
-  },[filteredBase]);
-
-  const TABS=[["log","✚ Log Trip"],["list","Logbook"],["calendar","Calendar"],["map","Chart"],["stats","Trends"]];
-  const showFilter=["list","map","stats"].includes(tab);
-
-  return(
-    <div>
-      <header className="fl-head">
-        <div className="fl-head-rose" aria-hidden>✺</div>
-        <div className="fl-head-text">
-          <div className="fl-kicker">Leeville · Louisiana · Barataria–Timbalier Basin</div>
-          <h1 className="fl-title">The Marsh Logbook</h1>
-          <div className="fl-sub">Trips, stops &amp; counts — specks, reds &amp; whatever else bites</div>
-        </div>
-        <div className="fl-head-stat">
-          <div className="fl-bignum">{stats.total}</div>
-          <div className="fl-biglabel">{filterLabel(filter)?"filtered":"total"} fish</div>
-        </div>
-      </header>
-
-      <nav className="fl-tabs">
-        {TABS.map(([k,label])=>(
-          <button key={k} className={"fl-tab"+(tab===k?" is-active":"")} onClick={()=>setTab(k)}>{label}</button>
-        ))}
-      </nav>
-
-      <main className="fl-main">
-        {!loaded&&<div className="fl-empty">Loading your logbook…</div>}
-
-        {loaded&&showFilter&&<FilterBar filter={filter} setFilter={setFilter} allSpots={allLoggedSpots}/>}
-
-        {/* LOG TRIP */}
-        {loaded&&tab==="log"&&(
-          <div>
-            <div className="fl-card">
-              <h2 className="fl-h2">{trip.id?"Edit Trip":"New Trip"}</h2>
-              <div className="fl-grid">
-                <Field label="Trip date"><input type="date" value={trip.date} onChange={e=>setTF("date",e.target.value)}/></Field>
-                <Field label="Trip notes" wide><input value={trip.notes} placeholder="who, boat, overall day…" onChange={e=>setTF("notes",e.target.value)}/></Field>
-              </div>
-              <div className="fl-subhead">Conditions <span className="fl-subhead-note">— for the whole trip</span></div>
-              <div className="fl-grid">
-                <Field label="Sky"><select value={trip.weather} onChange={e=>setTF("weather",e.target.value)}>{WEATHER.map(w=><option key={w}>{w}</option>)}</select></Field>
-                <Field label="Air °F"><input type="number" value={trip.airTemp} onChange={e=>setTF("airTemp",e.target.value)}/></Field>
-                <Field label="Water °F"><input type="number" value={trip.waterTemp} onChange={e=>setTF("waterTemp",e.target.value)}/></Field>
-                <Field label="Wind mph"><input type="number" value={trip.windSpeed} onChange={e=>setTF("windSpeed",e.target.value)}/></Field>
-                <Field label="Wind dir"><select value={trip.windDir} onChange={e=>setTF("windDir",e.target.value)}>{WIND_DIRS.map(w=><option key={w}>{w}</option>)}</select></Field>
-                <Field label="Tide"><select value={trip.tide} onChange={e=>setTF("tide",e.target.value)}>{TIDES.map(t=><option key={t}>{t}</option>)}</select></Field>
-                <Field label="Moon"><select value={trip.moon} onChange={e=>setTF("moon",e.target.value)}>{MOONS.map(mn=><option key={mn}>{mn}</option>)}</select></Field>
-                <Field label="Pressure"><input type="number" step="0.01" value={trip.pressure} placeholder="30.05" onChange={e=>setTF("pressure",e.target.value)}/></Field>
-                <Field label="Clarity"><select value={trip.clarity} onChange={e=>setTF("clarity",e.target.value)}>{CLARITY.map(c=><option key={c}>{c}</option>)}</select></Field>
-              </div>
-            </div>
-
-            {trip.stops.map((st,i)=>(
-              <div key={st.id} className="fl-card fl-stop">
-                <div className="fl-stop-head">
-                  <span className="fl-stop-badge">Stop {i+1}</span>
-                  <span className="fl-stop-fish">{stopFish(st)} fish</span>
-                  {trip.stops.length>1&&<button className="fl-mini fl-mini-del" style={{marginLeft:"auto"}} onClick={()=>removeStop(st.id)}>remove stop</button>}
-                </div>
-                <div className="fl-grid">
-                  <Field label="Spot" wide><input list="spotlist" value={st.spot} placeholder="Pick or name a spot" onChange={e=>onPickSpot(st.id,e.target.value)}/></Field>
-                  <Field label="Time"><input type="time" value={st.time} onChange={e=>patchStop(st.id,{time:e.target.value})}/></Field>
-                  <Field label="Latitude"><input type="number" step="0.0001" value={st.lat} onChange={e=>patchStop(st.id,{lat:e.target.value})}/></Field>
-                  <Field label="Longitude"><input type="number" step="0.0001" value={st.lng} onChange={e=>patchStop(st.id,{lng:e.target.value})}/></Field>
-                  <Field label="Set location">
-                    <button type="button" className={"fl-toggle"+(pickerStopId===st.id?" is-on":"")} onClick={()=>setPickerStopId(pickerStopId===st.id?null:st.id)}>
-                      {pickerStopId===st.id?"✓ Close map":"📍 Drop pin on map"}
-                    </button>
-                  </Field>
-                </div>
-                {pickerStopId===st.id&&(
-                  <div className="fl-pickwrap">
-                    <p className="fl-note">Tap anywhere on the map to drop this stop's pin.</p>
-                    <LeafletPicker lat={parseFloat(st.lat)} lng={parseFloat(st.lng)} onPick={(lat,lng)=>onDropPin(st.id,lat,lng)}/>
-                  </div>
-                )}
-                <div className="fl-grid" style={{marginTop:12}}>
-                  <Field label="Bait / Lure" wide><input value={st.bait} placeholder="Matrix Shad, live shrimp…" onChange={e=>patchStop(st.id,{bait:e.target.value})}/></Field>
-                </div>
-                <div className="fl-subhead">Catches at this stop</div>
-                {st.catches.map(c=>(
-                  <div key={c.id} className="fl-catchrow" style={{borderLeftColor:speciesColor(resolveSpecies(c))}}>
-                    <div className="fl-catch-top">
-                      <select className="fl-catch-sp" value={c.species} onChange={e=>setCatchSpecies(st.id,c.id,e.target.value)}>
-                        <optgroup label="Inshore">{INSHORE.map(s=><option key={s}>{s}</option>)}</optgroup>
-                        <optgroup label="Offshore">{OFFSHORE.map(s=><option key={s}>{s}</option>)}</optgroup>
-                        <option value="__custom">＋ Custom species…</option>
-                      </select>
-                      {st.catches.length>1&&<button className="fl-mini fl-mini-del" onClick={()=>removeCatch(st.id,c.id)}>×</button>}
-                    </div>
-                    {c.species==="__custom"&&<input className="fl-custom" value={c.customSpecies} placeholder="Type species name" onChange={e=>patchCatch(st.id,c.id,{customSpecies:e.target.value})}/>}
-                    <div className="fl-counts">
-                      {speciesFields(c.species).map(f=>(
-                        <label key={f.key} className="fl-count">
-                          <span className="fl-count-lbl">{f.label}</span>
-                          <input type="number" min="0" inputMode="numeric" value={c.counts?.[f.key]??""} placeholder="0" onChange={e=>setCatchCount(st.id,c.id,f.key,e.target.value)}/>
-                        </label>
-                      ))}
-                    </div>
-                    {regHint(c.species)&&<div className="fl-reghint">⚖ {regHint(c.species)}</div>}
-                  </div>
-                ))}
-                <button className="fl-btn fl-btn-ghost" onClick={()=>addCatch(st.id)}>＋ Add species</button>
-                <Field label="Stop notes" wide><input value={st.notes} placeholder="how it fished…" onChange={e=>patchStop(st.id,{notes:e.target.value})}/></Field>
-              </div>
-            ))}
-
-            <button className="fl-btn fl-btn-add" onClick={addStop}>＋ Add another stop</button>
-            <div className="fl-actions">
-              <button className="fl-btn fl-btn-primary" onClick={saveTrip}>{trip.id?"Save Trip":"Log Trip"}</button>
-              {trip.id&&<button className="fl-btn" onClick={()=>{setTrip(emptyTrip());setPickerStopId(null);}}>Cancel</button>}
-            </div>
-          </div>
-        )}
-
-        {/* LOGBOOK */}
-        {loaded&&tab==="list"&&(
-          <div>
-            <div className="fl-card fl-controls">
-              <input className="fl-search" placeholder="Search spot, species, bait, notes…" value={search} onChange={e=>setSearch(e.target.value)}/>
-            </div>
-            {listTrips.length===0
-              ?<div className="fl-empty">{filterLabel(filter)?"No trips match this filter.":"No trips yet — head to Log Trip."}</div>
-              :listTrips.map(t=>(
-              <div key={t.id} className="fl-card fl-trip">
-                <div className="fl-trip-head">
-                  <div><span className="fl-trip-date">{t.date}</span><span className="fl-trip-total">{tripFish(t)} fish · {t.stops.length} stop{t.stops.length>1?"s":""}</span></div>
-                  <div className="fl-entry-btns">
-                    <button className="fl-mini" onClick={()=>editTrip(t)}>edit</button>
-                    <button className="fl-mini fl-mini-del" onClick={()=>delTrip(t.id)}>×</button>
-                  </div>
-                </div>
-                {t.notes&&<div className="fl-entry-notes">{t.notes}</div>}
-                <div className="fl-entry-cond">
-                  {t.tide} tide · {t.moon} moon · {t.weather}
-                  {t.waterTemp&&` · ${t.waterTemp}°F water`}{t.airTemp&&` · ${t.airTemp}°F air`}
-                  {t.windSpeed&&` · ${t.windSpeed}mph ${t.windDir}`}{t.pressure&&` · ${t.pressure}inHg`}{t.clarity&&` · ${t.clarity}`}
-                </div>
-                {t.stops.map((st,i)=>(
-                  <div key={st.id} className="fl-trip-stop">
-                    <div className="fl-trip-stop-head"><b>Stop {i+1}: {st.spot}</b> <span className="fl-mono">{st.time}</span></div>
-                    <div className="fl-catch-pills">
-                      {st.catches.filter(c=>catchTotal(c)>0).map(c=>(
-                        <span key={c.id} className="fl-pill" style={{background:speciesColor(resolveSpecies(c))}}>{resolveSpecies(c)} {catchTotal(c)}</span>
-                      ))}
-                      {stopFish(st)===0&&<span className="fl-pill fl-pill-zero">no fish</span>}
-                    </div>
-                    {(st.bait||st.notes)&&<div className="fl-entry-cond">{st.bait}{st.bait&&st.notes?" · ":""}{st.notes}</div>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* CALENDAR */}
-        {loaded&&tab==="calendar"&&(
-          <Calendar cursor={cursor} setCursor={setCursor} trips={trips}
-            selectedDay={selectedDay} setSelectedDay={setSelectedDay} onEdit={editTrip} onDel={delTrip}/>
-        )}
-
-        {/* CHART */}
-        {loaded&&tab==="map"&&(
-          <div className="fl-card">
-            <h2 className="fl-h2">Catch Chart {filterLabel(filter)&&<span className="fl-filter-badge">filtered</span>}</h2>
-            <p className="fl-note">Pins sized by fish landed, colored by top species. Pinch/scroll to zoom.&nbsp;
-              <span className="leg"><i style={{background:"var(--teal)"}}/>Trout</span>
-              <span className="leg"><i style={{background:"var(--rust)"}}/>Redfish</span>
-              <span className="leg"><i style={{background:"var(--brass)"}}/>Other</span>
-            </p>
-            <LeafletCatchMap clusters={clusters} onSelect={setMapInfo}/>
-            {mapInfo
-              ?<div className="fl-mapinfo"><span className="fl-dot" style={{background:speciesColor(mapInfo.dominant)}}/><div><b>{mapInfo.name}</b> — {mapInfo.count} fish<br/><span style={{fontSize:11,opacity:.85}}>{Object.entries(mapInfo.species).map(([s,n])=>`${s} (${n})`).join(" · ")}</span></div></div>
-              :clusters.length>0?<div className="fl-mapinfo fl-mapinfo-hint">Tap a pin to see the spot &amp; catch breakdown.</div>
-              :<div className="fl-empty">No catches match this filter.</div>}
-          </div>
-        )}
-
-        {/* TRENDS */}
-        {loaded&&tab==="stats"&&(
-          <div className="fl-statsgrid">
-            {filterLabel(filter)&&<div className="fl-card fl-filter-label-row">📊 Trends for: <b>{filterLabel(filter)}</b></div>}
-            <Stat n={stats.total} l="total fish"/><Stat n={stats.kept} l="kept"/><Stat n={stats.released} l="released"/><Stat n={stats.trips} l="trips"/>
-            <div className="fl-card fl-wide">
-              <h3 className="fl-h3">By species</h3>
-              {stats.bySpeciesArr.length===0?<div className="fl-empty">Nothing in this period.</div>:
-                stats.bySpeciesArr.map(([s,n])=>(
-                  <div key={s} className="fl-bar-row">
-                    <span className="fl-bar-label">{s}</span>
-                    <span className="fl-bar-track"><span className="fl-bar-fill" style={{width:`${(n/stats.bySpeciesArr[0][1])*100}%`,background:speciesColor(s)}}/></span>
-                    <span className="fl-bar-num">{n}</span>
-                  </div>
-                ))}
-            </div>
-            <div className="fl-card fl-wide">
-              <h3 className="fl-h3">Fish by month</h3>
-              <div className="fl-months">
-                {stats.byMonth.map((n,i)=>(
-                  <div key={i} className="fl-month">
-                    <div className="fl-month-num" style={{opacity:n>0?1:0}}>{n||""}</div>
-                    <div className="fl-month-bar" style={{height:`${(n/stats.maxMonth)*80+2}px`}}/>
-                    <div className="fl-month-lbl">{MONTHS_S[i].slice(0,1)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="fl-card">
-              <h3 className="fl-h3">Slot tally</h3>
-              <div className="fl-pb"><span className="fl-dot" style={{background:"var(--teal)"}}/> <b>Speckled Trout</b></div>
-              <div className="fl-tally">Keepers 13–20": <b>{stats.troutTally.keepers}</b> · Over 20": <b>{stats.troutTally.over20}</b> · Throwbacks: <b>{stats.troutTally.under}</b></div>
-              <div className="fl-pb" style={{marginTop:8}}><span className="fl-dot" style={{background:"var(--rust)"}}/> <b>Red Drum</b></div>
-              <div className="fl-tally">Kept 18–27": <b>{stats.redTally.kept}</b> · Bulls: <b>{stats.redTally.bull}</b> · Throwbacks: <b>{stats.redTally.under}</b></div>
-            </div>
-            <div className="fl-card">
-              <h3 className="fl-h3">Best bite conditions</h3>
-              <div className="fl-pb">🌊 Tide: <b>{stats.hotTide?`${stats.hotTide[0]} (${stats.hotTide[1]})`:"—"}</b></div>
-              <div className="fl-pb">🌙 Moon: <b>{stats.hotMoon?`${stats.hotMoon[0]} (${stats.hotMoon[1]})`:"—"}</b></div>
-              <div className="fl-pb">💧 Water: <b>{stats.hotClar?`${stats.hotClar[0]} (${stats.hotClar[1]})`:"—"}</b></div>
-              <p className="fl-note">Weighted by fish landed.</p>
-            </div>
-            <div className="fl-card fl-wide">
-              <h3 className="fl-h3">Top spots</h3>
-              {stats.topSpots.length===0?<div className="fl-empty">Nothing in this period.</div>:
-                stats.topSpots.map(([s,n])=>(
-                  <div key={s} className="fl-bar-row">
-                    <span className="fl-bar-label">{s}</span>
-                    <span className="fl-bar-track"><span className="fl-bar-fill" style={{width:`${(n/stats.topSpots[0][1])*100}%`,background:"var(--teal-deep)"}}/></span>
-                    <span className="fl-bar-num">{n}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* IO Bar */}
-      <div className="fl-io-bar">
-        <div className="fl-io-inner">
-          <span className="fl-io-label">☁ Google Drive</span>
-          {!gToken?(
-            <button className="fl-io-btn fl-io-btn-go" onClick={signInGoogle}>🔑 Sign in with Google</button>
-          ):(
-            <>
-              <span className="fl-io-who">✓ {gUser||"Signed in"}</span>
-              <button className="fl-io-btn fl-io-btn-go" onClick={saveToGDrive} disabled={gdrive!=="idle"}>
-                {gdrive==="saving"?"⏳ Saving…":"⬆ Save to Drive"}
-              </button>
-              <button className="fl-io-btn" onClick={loadFromGDrive} disabled={gdrive!=="idle"}>
-                {gdrive==="loading"?"⏳ Loading…":"⬇ Load from Drive"}
-              </button>
-              <button className="fl-io-btn fl-io-btn-out" onClick={signOutGoogle}>Sign out</button>
-            </>
-          )}
-          <button className="fl-io-btn fl-io-btn-paste" onClick={()=>setShowImport(v=>!v)}>📋 Paste</button>
-          {ioMsg&&<span className={"fl-io-msg"+(ioMsg.ok?" fl-io-ok":" fl-io-err")}>{ioMsg.text}</span>}
-        </div>
-        {showImport&&(
-          <div className="fl-io-panel">
-            <div className="fl-io-panel-title">Paste your logbook JSON below, then tap Import</div>
-            <textarea className="fl-io-ta" value={importText} placeholder="Paste logbook JSON here…" onChange={e=>setImportText(e.target.value)}/>
-            <div className="fl-io-panel-actions">
-              <button className="fl-io-btn fl-io-btn-go" onClick={importFromText} disabled={!importText.trim()}>Import</button>
-              <button className="fl-io-btn" onClick={()=>{setShowImport(false);setImportText("");}}>Cancel</button>
-            </div>
-          </div>
-        )}
-        <div className="fl-io-hint">
-          {gToken?<>Signed in · saves as <b>marsh-logbook.json</b> in your Google Drive · sync between any device</>
-                 :<>Sign in with Google to save &amp; sync your logbook between your Surface and iPhone</>}
-        </div>
-      </div>
-
-      <footer className="fl-foot" style={{marginTop:16}}>Tight lines · dpchiasson.github.io/marsh-logbook</footer>
-      <datalist id="spotlist">{SPOTS.map(s=><option key={s.name} value={s.name}/>)}</datalist>
-    </div>
-  );
+    const top1 = (o) => Object.entries(o).sort((a, b) => b[1] - a[1])[0];
+    return { total, kept, released: total - kept, bySpeciesArr: Object.entries(bySpecies).sort((a, b) => b[1] - a[1]), topSpots: Object.entries(bySpot).sort((a, b) => b[1] - a[1]).slice(0, 5), byMonth, maxMonth: Math.max(1, ...byMonth), hotTide: top1(tide), hotMoon: top1(moon), hotClar: top1(clar), troutTally, redTally, trips: filteredBase.length };
+  }, [filteredBase]);
+  const TABS = [["log", "\u271A Log Trip"], ["list", "Logbook"], ["calendar", "Calendar"], ["map", "Chart"], ["stats", "Trends"]];
+  const showFilter = ["list", "map", "stats"].includes(tab);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { className: "fl-head" }, /* @__PURE__ */ React.createElement("div", { className: "fl-head-rose", "aria-hidden": true }, "\u273A"), /* @__PURE__ */ React.createElement("div", { className: "fl-head-text" }, /* @__PURE__ */ React.createElement("div", { className: "fl-kicker" }, "Leeville \xB7 Louisiana \xB7 Barataria\u2013Timbalier Basin"), /* @__PURE__ */ React.createElement("h1", { className: "fl-title" }, "The Marsh Logbook"), /* @__PURE__ */ React.createElement("div", { className: "fl-sub" }, "Trips, stops & counts \u2014 specks, reds & whatever else bites")), /* @__PURE__ */ React.createElement("div", { className: "fl-head-stat" }, /* @__PURE__ */ React.createElement("div", { className: "fl-bignum" }, stats.total), /* @__PURE__ */ React.createElement("div", { className: "fl-biglabel" }, filterLabel(filter) ? "filtered" : "total", " fish"))), /* @__PURE__ */ React.createElement("nav", { className: "fl-tabs" }, TABS.map(([k, label]) => /* @__PURE__ */ React.createElement("button", { key: k, className: "fl-tab" + (tab === k ? " is-active" : ""), onClick: () => setTab(k) }, label))), /* @__PURE__ */ React.createElement("main", { className: "fl-main" }, !loaded && /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Loading your logbook\u2026"), loaded && showFilter && /* @__PURE__ */ React.createElement(FilterBar, { filter, setFilter, allSpots: allLoggedSpots }), loaded && tab === "log" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2" }, trip.id ? "Edit Trip" : "New Trip"), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Trip date" }, /* @__PURE__ */ React.createElement("input", { type: "date", value: trip.date, onChange: (e) => setTF("date", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Trip notes", wide: true }, /* @__PURE__ */ React.createElement("input", { value: trip.notes, placeholder: "who, boat, overall day\u2026", onChange: (e) => setTF("notes", e.target.value) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Conditions ", /* @__PURE__ */ React.createElement("span", { className: "fl-subhead-note" }, "\u2014 for the whole trip")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Sky" }, /* @__PURE__ */ React.createElement("select", { value: trip.weather, onChange: (e) => setTF("weather", e.target.value) }, WEATHER.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Air \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.airTemp, onChange: (e) => setTF("airTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Water \xB0F" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.waterTemp, onChange: (e) => setTF("waterTemp", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind mph" }, /* @__PURE__ */ React.createElement("input", { type: "number", value: trip.windSpeed, onChange: (e) => setTF("windSpeed", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Wind dir" }, /* @__PURE__ */ React.createElement("select", { value: trip.windDir, onChange: (e) => setTF("windDir", e.target.value) }, WIND_DIRS.map((w) => /* @__PURE__ */ React.createElement("option", { key: w }, w)))), /* @__PURE__ */ React.createElement(Field, { label: "Tide" }, /* @__PURE__ */ React.createElement("select", { value: trip.tide, onChange: (e) => setTF("tide", e.target.value) }, TIDES.map((t) => /* @__PURE__ */ React.createElement("option", { key: t }, t)))), /* @__PURE__ */ React.createElement(Field, { label: "Moon" }, /* @__PURE__ */ React.createElement("select", { value: trip.moon, onChange: (e) => setTF("moon", e.target.value) }, MOONS.map((mn) => /* @__PURE__ */ React.createElement("option", { key: mn }, mn)))), /* @__PURE__ */ React.createElement(Field, { label: "Pressure" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.01", value: trip.pressure, placeholder: "30.05", onChange: (e) => setTF("pressure", e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Clarity" }, /* @__PURE__ */ React.createElement("select", { value: trip.clarity, onChange: (e) => setTF("clarity", e.target.value) }, CLARITY.map((c) => /* @__PURE__ */ React.createElement("option", { key: c }, c)))))), trip.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-card fl-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-stop-head" }, /* @__PURE__ */ React.createElement("span", { className: "fl-stop-badge" }, "Stop ", i + 1), /* @__PURE__ */ React.createElement("span", { className: "fl-stop-fish" }, stopFish(st), " fish"), trip.stops.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", style: { marginLeft: "auto" }, onClick: () => removeStop(st.id) }, "remove stop")), /* @__PURE__ */ React.createElement("div", { className: "fl-grid" }, /* @__PURE__ */ React.createElement(Field, { label: "Spot", wide: true }, /* @__PURE__ */ React.createElement("input", { list: "spotlist", value: st.spot, placeholder: "Pick or name a spot", onChange: (e) => onPickSpot(st.id, e.target.value) })), /* @__PURE__ */ React.createElement(Field, { label: "Time" }, /* @__PURE__ */ React.createElement("input", { type: "time", value: st.time, onChange: (e) => patchStop(st.id, { time: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Latitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lat, onChange: (e) => patchStop(st.id, { lat: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Longitude" }, /* @__PURE__ */ React.createElement("input", { type: "number", step: "0.0001", value: st.lng, onChange: (e) => patchStop(st.id, { lng: e.target.value }) })), /* @__PURE__ */ React.createElement(Field, { label: "Set location" }, /* @__PURE__ */ React.createElement("button", { type: "button", className: "fl-toggle" + (pickerStopId === st.id ? " is-on" : ""), onClick: () => setPickerStopId(pickerStopId === st.id ? null : st.id) }, pickerStopId === st.id ? "\u2713 Close map" : "\u{1F4CD} Drop pin on map"))), pickerStopId === st.id && /* @__PURE__ */ React.createElement("div", { className: "fl-pickwrap" }, /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Tap anywhere on the map to drop this stop's pin."), /* @__PURE__ */ React.createElement(LeafletPicker, { lat: parseFloat(st.lat), lng: parseFloat(st.lng), onPick: (lat, lng) => onDropPin(st.id, lat, lng) })), /* @__PURE__ */ React.createElement("div", { className: "fl-grid", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(Field, { label: "Bait / Lure", wide: true }, /* @__PURE__ */ React.createElement("input", { value: st.bait, placeholder: "Matrix Shad, live shrimp\u2026", onChange: (e) => patchStop(st.id, { bait: e.target.value }) }))), /* @__PURE__ */ React.createElement("div", { className: "fl-subhead" }, "Catches at this stop"), st.catches.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, className: "fl-catchrow", style: { borderLeftColor: speciesColor(resolveSpecies(c)) } }, /* @__PURE__ */ React.createElement("div", { className: "fl-catch-top" }, /* @__PURE__ */ React.createElement("select", { className: "fl-catch-sp", value: c.species, onChange: (e) => setCatchSpecies(st.id, c.id, e.target.value) }, /* @__PURE__ */ React.createElement("optgroup", { label: "Inshore" }, INSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("optgroup", { label: "Offshore" }, OFFSHORE.map((s) => /* @__PURE__ */ React.createElement("option", { key: s }, s))), /* @__PURE__ */ React.createElement("option", { value: "__custom" }, "\uFF0B Custom species\u2026")), st.catches.length > 1 && /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => removeCatch(st.id, c.id) }, "\xD7")), c.species === "__custom" && /* @__PURE__ */ React.createElement("input", { className: "fl-custom", value: c.customSpecies, placeholder: "Type species name", onChange: (e) => patchCatch(st.id, c.id, { customSpecies: e.target.value }) }), /* @__PURE__ */ React.createElement("div", { className: "fl-counts" }, speciesFields(c.species).map((f) => {
+    var _a, _b;
+    return /* @__PURE__ */ React.createElement("label", { key: f.key, className: "fl-count" }, /* @__PURE__ */ React.createElement("span", { className: "fl-count-lbl" }, f.label), /* @__PURE__ */ React.createElement("input", { type: "number", min: "0", inputMode: "numeric", value: (_b = (_a = c.counts) == null ? void 0 : _a[f.key]) != null ? _b : "", placeholder: "0", onChange: (e) => setCatchCount(st.id, c.id, f.key, e.target.value) }));
+  })), regHint(c.species) && /* @__PURE__ */ React.createElement("div", { className: "fl-reghint" }, "\u2696 ", regHint(c.species)))), /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-ghost", onClick: () => addCatch(st.id) }, "\uFF0B Add species"), /* @__PURE__ */ React.createElement(Field, { label: "Stop notes", wide: true }, /* @__PURE__ */ React.createElement("input", { value: st.notes, placeholder: "how it fished\u2026", onChange: (e) => patchStop(st.id, { notes: e.target.value }) })))), /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-add", onClick: addStop }, "\uFF0B Add another stop"), /* @__PURE__ */ React.createElement("div", { className: "fl-actions" }, /* @__PURE__ */ React.createElement("button", { className: "fl-btn fl-btn-primary", onClick: saveTrip }, trip.id ? "Save Trip" : "Log Trip"), trip.id && /* @__PURE__ */ React.createElement("button", { className: "fl-btn", onClick: () => {
+    setTrip(emptyTrip());
+    setPickerStopId(null);
+  } }, "Cancel"))), loaded && tab === "list" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-controls" }, /* @__PURE__ */ React.createElement("input", { className: "fl-search", placeholder: "Search spot, species, bait, notes\u2026", value: search, onChange: (e) => setSearch(e.target.value) })), listTrips.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, filterLabel(filter) ? "No trips match this filter." : "No trips yet \u2014 head to Log Trip.") : listTrips.map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, className: "fl-card fl-trip" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-head" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "fl-trip-date" }, t.date), /* @__PURE__ */ React.createElement("span", { className: "fl-trip-total" }, tripFish(t), " fish \xB7 ", t.stops.length, " stop", t.stops.length > 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-btns" }, /* @__PURE__ */ React.createElement("button", { className: "fl-mini", onClick: () => editTrip(t) }, "edit"), /* @__PURE__ */ React.createElement("button", { className: "fl-mini fl-mini-del", onClick: () => delTrip(t.id) }, "\xD7"))), t.notes && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-notes" }, t.notes), /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond" }, t.tide, " tide \xB7 ", t.moon, " moon \xB7 ", t.weather, t.waterTemp && ` \xB7 ${t.waterTemp}\xB0F water`, t.airTemp && ` \xB7 ${t.airTemp}\xB0F air`, t.windSpeed && ` \xB7 ${t.windSpeed}mph ${t.windDir}`, t.pressure && ` \xB7 ${t.pressure}inHg`, t.clarity && ` \xB7 ${t.clarity}`), t.stops.map((st, i) => /* @__PURE__ */ React.createElement("div", { key: st.id, className: "fl-trip-stop" }, /* @__PURE__ */ React.createElement("div", { className: "fl-trip-stop-head" }, /* @__PURE__ */ React.createElement("b", null, "Stop ", i + 1, ": ", st.spot), " ", /* @__PURE__ */ React.createElement("span", { className: "fl-mono" }, st.time)), /* @__PURE__ */ React.createElement("div", { className: "fl-catch-pills" }, st.catches.filter((c) => catchTotal(c) > 0).map((c) => /* @__PURE__ */ React.createElement("span", { key: c.id, className: "fl-pill", style: { background: speciesColor(resolveSpecies(c)) } }, resolveSpecies(c), " ", catchTotal(c))), stopFish(st) === 0 && /* @__PURE__ */ React.createElement("span", { className: "fl-pill fl-pill-zero" }, "no fish")), (st.bait || st.notes) && /* @__PURE__ */ React.createElement("div", { className: "fl-entry-cond" }, st.bait, st.bait && st.notes ? " \xB7 " : "", st.notes)))))), loaded && tab === "calendar" && /* @__PURE__ */ React.createElement(
+    Calendar,
+    {
+      cursor,
+      setCursor,
+      trips,
+      selectedDay,
+      setSelectedDay,
+      onEdit: editTrip,
+      onDel: delTrip
+    }
+  ), loaded && tab === "map" && /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h2", { className: "fl-h2" }, "Catch Chart ", filterLabel(filter) && /* @__PURE__ */ React.createElement("span", { className: "fl-filter-badge" }, "filtered")), /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Pins sized by fish landed, colored by top species. Pinch/scroll to zoom.\xA0", /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--teal)" } }), "Trout"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--rust)" } }), "Redfish"), /* @__PURE__ */ React.createElement("span", { className: "leg" }, /* @__PURE__ */ React.createElement("i", { style: { background: "var(--brass)" } }), "Other")), /* @__PURE__ */ React.createElement(LeafletCatchMap, { clusters, onSelect: setMapInfo }), mapInfo ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: speciesColor(mapInfo.dominant) } }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("b", null, mapInfo.name), " \u2014 ", mapInfo.count, " fish", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, opacity: 0.85 } }, Object.entries(mapInfo.species).map(([s, n]) => `${s} (${n})`).join(" \xB7 ")))) : clusters.length > 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-mapinfo fl-mapinfo-hint" }, "Tap a pin to see the spot & catch breakdown.") : /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "No catches match this filter.")), loaded && tab === "stats" && /* @__PURE__ */ React.createElement("div", { className: "fl-statsgrid" }, filterLabel(filter) && /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-filter-label-row" }, "\u{1F4CA} Trends for: ", /* @__PURE__ */ React.createElement("b", null, filterLabel(filter))), /* @__PURE__ */ React.createElement(Stat, { n: stats.total, l: "total fish" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.kept, l: "kept" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.released, l: "released" }), /* @__PURE__ */ React.createElement(Stat, { n: stats.trips, l: "trips" }), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "By species"), stats.bySpeciesArr.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.bySpeciesArr.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.bySpeciesArr[0][1] * 100}%`, background: speciesColor(s) } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Fish by month"), /* @__PURE__ */ React.createElement("div", { className: "fl-months" }, stats.byMonth.map((n, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "fl-month" }, /* @__PURE__ */ React.createElement("div", { className: "fl-month-num", style: { opacity: n > 0 ? 1 : 0 } }, n || ""), /* @__PURE__ */ React.createElement("div", { className: "fl-month-bar", style: { height: `${n / stats.maxMonth * 80 + 2}px` } }), /* @__PURE__ */ React.createElement("div", { className: "fl-month-lbl" }, MONTHS_S[i].slice(0, 1)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Slot tally"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--teal)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Speckled Trout")), /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Keepers 13\u201320": ', /* @__PURE__ */ React.createElement("b", null, stats.troutTally.keepers), ' \xB7 Over 20": ', /* @__PURE__ */ React.createElement("b", null, stats.troutTally.over20), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.troutTally.under)), /* @__PURE__ */ React.createElement("div", { className: "fl-pb", style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "fl-dot", style: { background: "var(--rust)" } }), " ", /* @__PURE__ */ React.createElement("b", null, "Red Drum")), /* @__PURE__ */ React.createElement("div", { className: "fl-tally" }, 'Kept 18\u201327": ', /* @__PURE__ */ React.createElement("b", null, stats.redTally.kept), " \xB7 Bulls: ", /* @__PURE__ */ React.createElement("b", null, stats.redTally.bull), " \xB7 Throwbacks: ", /* @__PURE__ */ React.createElement("b", null, stats.redTally.under))), /* @__PURE__ */ React.createElement("div", { className: "fl-card" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Best bite conditions"), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F30A} Tide: ", /* @__PURE__ */ React.createElement("b", null, stats.hotTide ? `${stats.hotTide[0]} (${stats.hotTide[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F319} Moon: ", /* @__PURE__ */ React.createElement("b", null, stats.hotMoon ? `${stats.hotMoon[0]} (${stats.hotMoon[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("div", { className: "fl-pb" }, "\u{1F4A7} Water: ", /* @__PURE__ */ React.createElement("b", null, stats.hotClar ? `${stats.hotClar[0]} (${stats.hotClar[1]})` : "\u2014")), /* @__PURE__ */ React.createElement("p", { className: "fl-note" }, "Weighted by fish landed.")), /* @__PURE__ */ React.createElement("div", { className: "fl-card fl-wide" }, /* @__PURE__ */ React.createElement("h3", { className: "fl-h3" }, "Top spots"), stats.topSpots.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "fl-empty" }, "Nothing in this period.") : stats.topSpots.map(([s, n]) => /* @__PURE__ */ React.createElement("div", { key: s, className: "fl-bar-row" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-label" }, s), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-track" }, /* @__PURE__ */ React.createElement("span", { className: "fl-bar-fill", style: { width: `${n / stats.topSpots[0][1] * 100}%`, background: "var(--teal-deep)" } })), /* @__PURE__ */ React.createElement("span", { className: "fl-bar-num" }, n)))))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-bar" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-inner" }, /* @__PURE__ */ React.createElement("span", { className: "fl-io-label" }, "\u2601 Google Drive"), gUser && /* @__PURE__ */ React.createElement("span", { className: "fl-io-who" }, "\u2713 ", gUser), !gToken && !gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: signInGoogle }, "\u{1F511} Sign in with Google"), (gToken || gUser) && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: saveToGDrive, disabled: gdrive !== "idle" }, gdrive === "saving" ? "\u23F3 Saving\u2026" : "\u2B06 Save to Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: loadFromGDrive, disabled: gdrive !== "idle" }, gdrive === "loading" ? "\u23F3 Loading\u2026" : "\u2B07 Load from Drive"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-out", onClick: signOutGoogle }, "Sign out")), !gToken && gUser && /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: signInGoogle }, "\u{1F504} Refresh sign-in"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-paste", onClick: () => setShowImport((v) => !v) }, "\u{1F4CB} Paste"), ioMsg && /* @__PURE__ */ React.createElement("span", { className: "fl-io-msg" + (ioMsg.ok ? " fl-io-ok" : " fl-io-err") }, ioMsg.text)), showImport && /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel" }, /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-title" }, "Paste your logbook JSON below, then tap Import"), /* @__PURE__ */ React.createElement("textarea", { className: "fl-io-ta", value: importText, placeholder: "Paste logbook JSON here\u2026", onChange: (e) => setImportText(e.target.value) }), /* @__PURE__ */ React.createElement("div", { className: "fl-io-panel-actions" }, /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn fl-io-btn-go", onClick: importFromText, disabled: !importText.trim() }, "Import"), /* @__PURE__ */ React.createElement("button", { className: "fl-io-btn", onClick: () => {
+    setShowImport(false);
+    setImportText("");
+  } }, "Cancel"))), /* @__PURE__ */ React.createElement("div", { className: "fl-io-hint" }, gToken ? /* @__PURE__ */ React.createElement(React.Fragment, null, "Signed in \xB7 saves as ", /* @__PURE__ */ React.createElement("b", null, "marsh-logbook.json"), " in your Google Drive \xB7 sync between any device") : /* @__PURE__ */ React.createElement(React.Fragment, null, "Sign in with Google to save & sync your logbook between your Surface and iPhone"))), /* @__PURE__ */ React.createElement("footer", { className: "fl-foot", style: { marginTop: 16 } }, "Tight lines \xB7 dpchiasson.github.io/marsh-logbook"), /* @__PURE__ */ React.createElement("datalist", { id: "spotlist" }, SPOTS.map((s) => /* @__PURE__ */ React.createElement("option", { key: s.name, value: s.name }))));
 }
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
