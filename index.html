@@ -557,12 +557,30 @@ function App() {
     signInGoogle();
     throw new Error("Redirecting to sign in\u2026");
   };
+  const KNOWN_FILE_ID = "1f8sa7TBMA21SO3bebWKZA_kpz1dmiz6l";
   const findFileId = async (token) => {
-    var _a, _b;
-    const r = await fetch("https://www.googleapis.com/drive/v3/files?q=name%3D'marsh-logbook.json'+and+trashed%3Dfalse&fields=files(id)&spaces=drive", { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) throw new Error(`Drive search ${r.status}`);
+    // 1. Try cached file ID from localStorage
+    const cached = storageGet("gDriveFileId");
+    if (cached) {
+      try {
+        const ck = await fetch(`https://www.googleapis.com/drive/v3/files/${cached}?fields=id,trashed`, { headers: { Authorization: `Bearer ${token}` } });
+        if (ck.ok) { const cf = await ck.json(); if (!cf.trashed) return cached; }
+      } catch(e) {}
+      storageSet("gDriveFileId","");
+    }
+    // 2. Try known file ID directly
+    try {
+      const kk = await fetch(`https://www.googleapis.com/drive/v3/files/${KNOWN_FILE_ID}?fields=id,trashed`, { headers: { Authorization: `Bearer ${token}` } });
+      if (kk.ok) { const kf = await kk.json(); if (!kf.trashed) { storageSet("gDriveFileId", KNOWN_FILE_ID); return KNOWN_FILE_ID; } }
+    } catch(e) {}
+    // 3. Search by name
+    const q = encodeURIComponent("name = 'marsh-logbook.json' and trashed = false");
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`Drive search failed: ${r.status}`);
     const d = await r.json();
-    return ((_b = (_a = d.files) == null ? void 0 : _a[0]) == null ? void 0 : _b.id) || null;
+    const id = (d.files && d.files[0] && d.files[0].id) || null;
+    if (id) storageSet("gDriveFileId", id);
+    return id;
   };
   const saveToGDrive = async () => {
     setGdrive("saving");
@@ -577,6 +595,7 @@ function App() {
           { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: blob }
         );
         if (!r.ok) throw new Error(`Update failed ${r.status}`);
+        storageSet("gDriveFileId", fileId);
       } else {
         const meta = new Blob([JSON.stringify({ name: "marsh-logbook.json", mimeType: "application/json" })], { type: "application/json" });
         const form = new FormData();
